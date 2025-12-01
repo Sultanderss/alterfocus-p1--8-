@@ -1,0 +1,8 @@
+{
+  "name": "AlterFocus p1",
+  "description": "An empathetic, science-based focus intervention app designed to reduce procrastination without guilt. Features breathing exercises, focus timers, and crisis support.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ]
+}

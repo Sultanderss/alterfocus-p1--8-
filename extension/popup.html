@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlterFocus Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 320px;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
+            padding: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 16px;
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .stat-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-value.blocked {
+            color: #ef4444;
+        }
+
+        .stat-value.saved {
+            color: #22c55e;
+        }
+
+        .toggle-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .toggle-label {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle.active {
+            background: #4f46e5;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle.active .toggle-slider {
+            transform: translateX(22px);
+        }
+
+        .toggle-status {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .toggle-status.active {
+            color: #22c55e;
+        }
+
+        .toggle-status.inactive {
+            color: #ef4444;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 12px;
+            font-size: 10px;
+            color: #64748b;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🧠 AlterFocus</h1>
+        <p>Control de Bloqueo Anti-Distracción</p>
+    </div>
+
+    <div class="content">
+        <div class="stats">
+            <div class="stat-row">
+                <span class="stat-label">🚫 Bloqueadas Hoy</span>
+                <span class="stat-value blocked" id="blockedCount">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">⏱️ Tiempo Ahorrado</span>
+                <span class="stat-value saved" id="savedTime">0 min</span>
+            </div>
+        </div>
+
+        <div class="toggle-section">
+            <div class="toggle-label">Estado del Bloqueador</div>
+            <div class="toggle-container">
+                <span class="toggle-status active" id="statusText">Activo</span>
+                <div class="toggle active" id="toggleBtn">
+                    <div class="toggle-slider"></div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="openDashboard">
+            📊 Abrir Dashboard
+        </button>
+        <button class="btn btn-secondary" id="resetStats">
+            🔄 Resetear Estadísticas
+        </button>
+    </div>
+
+    <div class="footer">
+        AlterFocus v1.0 - Protege tu atención
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

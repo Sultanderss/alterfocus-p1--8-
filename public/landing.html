@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlterFocus - Recupera tu Atención</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #050505;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+
+        .glow-purple {
+            box-shadow: 0 0 20px rgba(147, 51, 234, 0.4);
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-active {
+            background: linear-gradient(90deg, #06b6d4, #3b82f6);
+            color: white;
+        }
+
+        .tab-inactive {
+            background: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 w-full z-50 glass px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-10 h-10 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center glow-cyan">
+                <span class="text-2xl">🧠</span>
+            </div>
+            <span class="font-bold text-2xl tracking-tight">AlterFocus</span>
+        </div>
+        <a href="../index.html" target="_blank"
+            class="px-5 py-2 glass hover:bg-white/10 rounded-full text-sm font-medium transition-all">
+            Entrar a la App →
+        </a>
+    </nav>
+
+    <!-- Tabs -->
+    <div class="pt-24 px-6 max-w-6xl mx-auto">
+        <div class="flex gap-4 mb-8">
+            <button onclick="showTab('home')" id="tab-home"
+                class="tab-active px-6 py-3 rounded-full font-bold text-sm transition-all">
+                Inicio
+            </button>
+            <button onclick="showTab('pitch')" id="tab-pitch"
+                class="tab-inactive px-6 py-3 rounded-full font-bold text-sm transition-all">
+                Pitch (3 min)
+            </button>
+            <button onclick="showTab('tech')" id="tab-tech"
+                class="tab-inactive px-6 py-3 rounded-full font-bold text-sm transition-all">
+                Tecnología
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab Content: HOME -->
+    <div id="content-home" class="tab-content">
+        <section class="min-h-screen flex flex-col items-center justify-center px-6 relative">
+            <!-- Background Gradients -->
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px]"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px]"></div>
+
+            <div class="text-center z-10 max-w-4xl mx-auto">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass mb-6">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="text-xs font-medium text-slate-300 tracking-wide uppercase">Prótesis Cognitiva</span>
+                </div>
+
+                <h1 class="text-6xl md:text-7xl font-extrabold tracking-tight leading-tight mb-6">
+                    Recupera tu mente<br>en la
+                    <span
+                        class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
+                        Era de la Distracción
+                    </span>
+                </h1>
+
+                <p class="text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+                    No es falta de voluntad, es una guerra asimétrica. AlterFocus es tu sistema operativo para navegar
+                    un mundo diseñado para robar tu atención.
+                </p>
+
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <a href="../index.html" target="_blank"
+                        class="px-8 py-4 bg-white text-black rounded-full font-bold text-lg glow-cyan hover:scale-105 transition-all">
+                        Iniciar Protocolo →
+                    </a>
+                    <button onclick="showTab('pitch')"
+                        class="px-8 py-4 glass hover:bg-white/10 rounded-full font-medium text-lg transition-all">
+                        Ver el Pitch (3 min)
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="py-24 px-6 glass relative">
+            <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 class="text-4xl font-bold mb-6">La Crisis Invisible</h2>
+                    <p class="text-slate-400 text-lg mb-8 leading-relaxed">
+                        En el año 2000, nuestra capacidad de atención era de 12 segundos. Hoy es de 8.
+                        Estamos perdiendo la capacidad de profundizar.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="p-4 glass rounded-2xl">
+                            <div class="text-4xl font-bold text-red-400 mb-1">-33%</div>
+                            <div class="text-sm text-slate-400">Capacidad de Atención</div>
+                        </div>
+                        <div class="p-4 glass rounded-2xl">
+                            <div class="text-4xl font-bold text-cyan-400 mb-1">4h+</div>
+                            <div class="text-sm text-slate-400">Promedio en RRSS/día</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="h-[300px] glass rounded-3xl p-6 relative">
+                    <canvas id="attentionChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Tab Content: PITCH -->
+    <div id="content-pitch" class="tab-content hidden">
+        <section class="py-24 px-6">
+            <div class="max-w-4xl mx-auto">
+                <h1 class="text-5xl font-bold text-center mb-12">Pitch Deck (3 Min)</h1>
+
+                <!-- Pitch Timeline -->
+                <div class="space-y-12">
+                    <!-- 0:00 - 0:45 -->
+                    <div class="glass p-8 rounded-3xl">
+                        <div class="text-cyan-400 font-bold mb-2">0:00 - 0:45 | El Problema</div>
+                        <h3 class="text-2xl font-bold mb-4">La Crisis Invisible</h3>
+                        <p class="text-slate-300 leading-relaxed mb-4">
+                            "En el año 2000, la capacidad de atención promedio del ser humano era de 12 segundos.
+                            Hoy, es de 8 segundos. Menos que la de un pez dorado."
+                        </p>
+                        <div class="h-[200px] mt-6">
+                            <canvas id="pitchChart1"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 0:45 - 1:30 -->
+                    <div class="glass p-8 rounded-3xl">
+                        <div class="text-purple-400 font-bold mb-2">0:45 - 1:30 | La Solución</div>
+                        <h3 class="text-2xl font-bold mb-4">AlterFocus: No bloquea, negocia</h3>
+                        <p class="text-slate-300 leading-relaxed">
+                            Utiliza IA Contextual para intervenir en el momento exacto del impulso.
+                            No te prohíbe, te pregunta: "¿Es esto lo que quieres hacer ahora?".
+                            Convierte un hábito inconsciente en una decisión consciente.
+                        </p>
+                    </div>
+
+                    <!-- 1:30 - 2:15 -->
+                    <div class="glass p-8 rounded-3xl">
+                        <div class="text-amber-400 font-bold mb-2">1:30 - 2:15 | La Magia</div>
+                        <h3 class="text-2xl font-bold mb-4">Multimodalidad y Comunidad</h3>
+                        <div class="grid md:grid-cols-3 gap-4 mt-6">
+                            <div class="glass p-4 rounded-xl">
+                                <div class="text-3xl mb-2">💻</div>
+                                <div class="font-bold mb-1">Digital</div>
+                                <div class="text-xs text-slate-400">Panel sincronizado</div>
+                            </div>
+                            <div class="glass p-4 rounded-xl">
+                                <div class="text-3xl mb-2">📵</div>
+                                <div class="font-bold mb-1">Offline</div>
+                                <div class="text-xs text-slate-400">Desconexión total</div>
+                            </div>
+                            <div class="glass p-4 rounded-xl">
+                                <div class="text-3xl mb-2">👥</div>
+                                <div class="font-bold mb-1">Comunidad</div>
+                                <div class="text-xs text-slate-400">Salas en vivo</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2:15 - 3:00 -->
+                    <div class="glass p-8 rounded-3xl border-2 border-cyan-500/50">
+                        <div class="text-green-400 font-bold mb-2">2:15 - 3:00 | Visión</div>
+                        <h3 class="text-2xl font-bold mb-4">La Economía de la Recuperación de Atención</h3>
+                        <p class="text-slate-300 leading-relaxed mb-6">
+                            "La economía de la atención vale billones. Pero la economía de la
+                            <strong>recuperación</strong>
+                            de la atención apenas comienza. AlterFocus no es solo una app de productividad;
+                            es una prótesis cognitiva para el siglo XXI."
+                        </p>
+                        <div class="text-center py-6 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 rounded-xl">
+                            <div class="text-5xl font-bold mb-2">∞</div>
+                            <div class="text-sm text-slate-400">Recupera tu vida</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Tab Content: TECH -->
+    <div id="content-tech" class="tab-content hidden">
+        <section class="py-24 px-6">
+            <div class="max-w-6xl mx-auto">
+                <h1 class="text-5xl font-bold text-center mb-12">Stack Tecnológico</h1>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="glass p-8 rounded-3xl">
+                        <h3 class="text-2xl font-bold mb-4">Frontend</h3>
+                        <ul class="space-y-2 text-slate-300">
+                            <li>• React + TypeScript</li>
+                            <li>• Framer Motion (Animaciones)</li>
+                            <li>• Recharts (Visualización de datos)</li>
+                            <li>• Tailwind CSS</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass p-8 rounded-3xl">
+                        <h3 class="text-2xl font-bold mb-4">IA & Backend</h3>
+                        <ul class="space-y-2 text-slate-300">
+                            <li>• Google Gemini AI (Contextual)</li>
+                            <li>• Web Speech API (Voz)</li>
+                            <li>• LocalStorage (Persistencia)</li>
+                            <li>• Chrome Extension API</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass p-8 rounded-3xl md:col-span-2">
+                        <h3 class="text-2xl font-bold mb-4">Arquitectura del Sistema</h3>
+                        <p class="text-slate-300 mb-4">
+                            AlterFocus utiliza una arquitectura modular que combina:
+                        </p>
+                        <ul class="space-y-2 text-slate-300">
+                            <li><strong>1. Extensión de Navegador:</strong> Monitorea patrones de navegación en tiempo
+                                real</li>
+                            <li><strong>2. WebApp Principal:</strong> Hub central de productividad y análisis</li>
+                            <li><strong>3. Motor de IA:</strong> Decisiones contextuales basadas en el estado emocional
+                                del usuario</li>
+                            <li><strong>4. Sistema de Comunidad:</strong> Salas de estudio sincronizadas en tiempo real
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="py-12 px-6 border-t border-white/10 glass mt-24">
+        <div class="max-w-6xl mx-auto text-center">
+            <div class="text-3xl font-bold mb-4">AlterFocus</div>
+            <p class="text-slate-400 mb-6">Recupera el control de tu atención</p>
+            <div class="flex items-center justify-center gap-6 text-slate-500 text-sm">
+                <span>🌍 Global Access</span>
+                <span>🔒 Privacy First</span>
+                <span>⚡ Open Beta</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Tab Functionality
+        function showTab(tabName) {
+            // Hide all
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => {
+                el.classList.remove('tab-active');
+                el.classList.add('tab-inactive');
+            });
+
+            // Show selected
+            document.getElementById('content-' + tabName).classList.remove('hidden');
+            document.getElementById('tab-' + tabName).classList.remove('tab-inactive');
+            document.getElementById('tab-' + tabName).classList.add('tab-active');
+        }
+
+        // Chart: Attention Decline
+        const ctx1 = document.getElementById('attentionChart');
+        if (ctx1) {
+            new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['2000', '2005', '2010', '2015', '2020', '2025'],
+                    datasets: [{
+                        label: 'Atención (segundos)',
+                        data: [12, 10, 9, 8.25, 8, 7.5],
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#fff' } } },
+                    scales: {
+                        y: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#1f2937' }
+                        },
+                        x: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#1f2937' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart: Pitch
+        const ctx2 = document.getElementById('pitchChart1');
+        if (ctx2) {
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['2000', '2010', '2020', '2025 (proj)'],
+                    datasets: [{
+                        label: 'Capacidad Atención (seg)',
+                        data: [12, 9, 8, 7],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#7f1d1d']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#fff' } } },
+                    scales: {
+                        y: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#1f2937' }
+                        },
+                        x: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#1f2937' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+</body>
+
+</html>

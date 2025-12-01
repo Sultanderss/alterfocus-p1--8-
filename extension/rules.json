@@ -1,0 +1,18 @@
+[
+    {
+        "id": 1,
+        "priority": 1,
+        "action": {
+            "type": "redirect",
+            "redirect": {
+                "regexSubstitution": "http://localhost:5175/?from=intervention&blocked=true&source=\\1"
+            }
+        },
+        "condition": {
+            "regexFilter": "^https?://(?:www\\.)?(facebook\\.com|youtube\\.com|instagram\\.com|tiktok\\.com|twitter\\.com|x\\.com|reddit\\.com|netflix\\.com|twitch\\.tv|discord\\.com|web\\.whatsapp\\.com)/.*",
+            "resourceTypes": [
+                "main_frame"
+            ]
+        }
+    }
+]
