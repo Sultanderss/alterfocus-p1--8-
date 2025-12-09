@@ -5,9 +5,18 @@ import { Trophy } from 'lucide-react';
 import { AppView, UserState, FocusConfig, POINTS, InterventionTone, SessionRecord } from './types';
 import SplashScreen from './components/SplashScreen';
 import Onboarding from './components/Onboarding';
+<<<<<<< HEAD
 import WelcomeScreen from './components/WelcomeScreen';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
+=======
+import { Auth } from './components/Auth';
+
+
+
+
+import { AnimatePresence, motion } from 'framer-motion';
+>>>>>>> b9bd1215171e9e1213355d6d8658abba0da60981
 import Alternatives from './components/Alternatives';
 import FocusSession from './components/FocusSession';
 import Breathing from './components/Breathing';
@@ -624,6 +633,7 @@ function AppContent() {
     </div>
   );
 }
+<<<<<<< HEAD
 
 // Wrapper for Providers
 export default function App() {
@@ -633,3 +643,5 @@ export default function App() {
     </SimulationProvider>
   );
 }
+=======
+>>>>>>> b9bd1215171e9e1213355d6d8658abba0da60981

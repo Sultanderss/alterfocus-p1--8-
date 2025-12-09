@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * LOGIN PAGE - AlterFocus
  * Premium design with animated background and proper branding
@@ -320,4 +321,250 @@ export default function LoginPage({ onAuthSuccess }: LoginPageProps) {
             </div>
         </div>
     );
+=======
+import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { LogIn, UserPlus, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+
+interface LoginPageProps {
+  onAuthSuccess: () => void;
+}
+
+export default function LoginPage({ onAuthSuccess }: LoginPageProps) {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
+
+  const validateForm = () => {
+    if (!email.trim()) {
+      setError('Email es requerido');
+      return false;
+    }
+    if (!password || password.length < 6) {
+      setError('Contraseña debe tener al menos 6 caracteres');
+      return false;
+    }
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!validateForm()) return;
+
+    setLoading(true);
+
+    try {
+      if (mode === 'signup') {
+        // Signup
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              display_name: email.split('@')[0],
+              created_at: new Date().toISOString(),
+            },
+          },
+        });
+
+        if (signUpError) {
+          setError(signUpError.message);
+          setLoading(false);
+          return;
+        }
+
+        setSuccess('¡Cuenta creada! Verifica tu email para confirmar.');
+        setTimeout(() => {
+          setMode('login');
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+          setSuccess('');
+        }, 2000);
+      } else {
+        // Login
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          setError(signInError.message);
+          setLoading(false);
+          return;
+        }
+
+        setSuccess('¡Bienvenido!');
+        setTimeout(() => {
+          onAuthSuccess();
+        }, 1000);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error de autenticación');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 mb-4">
+            <span className="text-2xl font-bold text-white">AF</span>
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
+            AlterFocus
+          </h1>
+          <p className="text-gray-400 text-sm">Sin culpa. Solo ciencia.</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-8 shadow-2xl">
+          {/* Mode Tabs */}
+          <div className="flex gap-2 mb-8">
+            <button
+              onClick={() => {
+                setMode('login');
+                setError('');
+                setSuccess('');
+              }}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                mode === 'login'
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                  : 'bg-slate-700/50 text-gray-400 hover:bg-slate-700'
+              }`}
+            >
+              <LogIn size={18} />
+              Inicia Sesión
+            </button>
+            <button
+              onClick={() => {
+                setMode('signup');
+                setError('');
+                setSuccess('');
+              }}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                mode === 'signup'
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                  : 'bg-slate-700/50 text-gray-400 hover:bg-slate-700'
+              }`}
+            >
+              <UserPlus size={18} />
+              Registrarse
+            </button>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex gap-3 animate-in slide-in-from-top">
+              <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
+              <p className="text-red-300 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {success && (
+            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex gap-3 animate-in slide-in-from-top">
+              <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center flex-shrink-0 text-white text-xs">✓</div>
+              <p className="text-green-300 text-sm">{success}</p>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+              />
+            </div>
+
+            {/* Password Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Contraseña</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password (Signup Only) */}
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Confirmar Contraseña</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repite tu contraseña"
+                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                />
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 mt-6"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  Procesando...
+                </>
+              ) : mode === 'login' ? (
+                <>
+                  <LogIn size={20} />
+                  Inicia Sesión
+                </>
+              ) : (
+                <>
+                  <UserPlus size={20} />
+                  Crear Cuenta
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer */}
+          <p className="text-center text-gray-500 text-xs mt-6 leading-relaxed">
+            Al usar AlterFocus, aceptas nuestra misión: combatir la procrastinación con ciencia y empatía.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+>>>>>>> b9bd1215171e9e1213355d6d8658abba0da60981
 }
