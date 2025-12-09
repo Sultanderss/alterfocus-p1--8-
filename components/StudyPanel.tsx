@@ -356,9 +356,10 @@ const StudyPanel: React.FC<StudyPanelProps> = ({ selectedDuration, onBack, onSta
     return (
         <motion.div
             className="absolute inset-0 bg-slate-50/50 z-20 flex flex-col overflow-hidden"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
         >
             {/* Header Minimalista */}
             <div className="px-6 pt-8 pb-4 flex justify-between items-center bg-white/80 backdrop-blur-sm sticky top-0 z-20 border-b border-slate-100">

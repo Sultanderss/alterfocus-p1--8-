@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
@@ -302,4 +306,145 @@ textarea {
 .tooltip:hover::after {
     opacity: 1;
     transform: translateX(-50%) translateY(-4px);
+}
+
+/* ============================================
+   DASHBOARD MEJORADO - Nuevos Estilos
+   ============================================ */
+
+/* LEVEL SECTION */
+.level-section {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0) 100%);
+    padding: 1.25rem 1.5rem;
+    border-radius: 16px;
+    border-left: 4px solid var(--brand-primary);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.level-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #E5E7EB;
+    background: linear-gradient(to right, var(--brand-primary), #a78bfa);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.progress-bar-large {
+    height: 10px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.progress-fill-large {
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-primary), #a78bfa);
+    border-radius: 5px;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+/* IA CARD */
+.ia-card {
+    padding: 1.5rem;
+    border-radius: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    background: rgba(99, 102, 241, 0.03);
+    backdrop-filter: blur(10px);
+}
+
+.ia-button {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--brand-primary), #a78bfa);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
+}
+
+.ia-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+}
+
+/* SUGERENCIA IA */
+.suggestion-card {
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
+    background: rgba(251, 191, 36, 0.06);
+    border-left: 3px solid var(--brand-accent);
+    border: 1px solid rgba(251, 191, 36, 0.15);
+}
+
+.suggestion-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.suggestion-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 8px;
+    border: 1px solid var(--brand-accent);
+    background: transparent;
+    color: #fbbf24;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.suggestion-btn:first-child {
+    background: var(--brand-accent);
+    color: #1F2937;
+}
+
+.suggestion-btn:hover {
+    background-color: rgba(251, 191, 36, 0.15);
+}
+
+/* DASHBOARD CONTAINER */
+.dashboard-container {
+    padding: 1.5rem;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* BOTTOM NAV */
+.bottom-nav-improved {
+    height: 80px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(20px);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav-item-improved {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #9CA3AF;
+    transition: all 0.2s ease;
+}
+
+.nav-item-improved.active {
+    color: var(--brand-primary);
+    font-weight: 600;
+}
+
+.nav-item-improved:active {
+    transform: scale(1.1);
 }

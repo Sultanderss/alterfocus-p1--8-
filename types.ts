@@ -1,10 +1,12 @@
 export enum AppView {
+  AUTH = 'AUTH',
+  LANDING_PAGE = 'LANDING_PAGE',
   SPLASH = 'SPLASH',
   ONBOARDING = 'ONBOARDING',
   DASHBOARD = 'DASHBOARD',
   INTERVENTION = 'INTERVENTION',
   INTERVENTION_CONTEXTUAL = 'INTERVENTION_CONTEXTUAL',
-  ALTERNATIVES = 'ALTERNATIVES', // Restored
+  ALTERNATIVES = 'ALTERNATIVES',
   FOCUS_SESSION = 'FOCUS_SESSION',
   STUDY_PANEL = 'STUDY_PANEL',
   OFFLINE_STUDY = 'OFFLINE_STUDY',
@@ -14,7 +16,20 @@ export enum AppView {
   SETTINGS = 'SETTINGS',
   ANALYTICS = 'ANALYTICS',
   AI_GUIDE = 'AI_GUIDE',
+  FLIP_PHONE_MODE = 'FLIP_PHONE_MODE',
+  EXERCISE_GATE = 'EXERCISE_GATE',
+  // New views
+  WORKSPACE = 'WORKSPACE',
+  SESSION_JOURNAL = 'SESSION_JOURNAL',
+  ONBOARDING_FLOW = 'ONBOARDING_FLOW',
+  SCHEDULE_UPLOAD = 'SCHEDULE_UPLOAD',
+  CALENDAR_CONNECT = 'CALENDAR_CONNECT',
+  CALENDAR_VIEW = 'CALENDAR_VIEW',
+  // Archetype System
+  PATTERN_DASHBOARD = 'PATTERN_DASHBOARD',
+  ARCHETYPE_INTERVENTION = 'ARCHETYPE_INTERVENTION',
 }
+
 
 export type InterventionTone = 'empathic' | 'direct' | 'motivational';
 
@@ -40,6 +55,9 @@ export interface UserState {
   distractionApps: string[];
   procrastinationHours: string[];
   connectedIntegrations: string[];
+
+  // Stats
+  streak?: number;
 }
 
 export type FocusMode = 'digital' | 'offline' | 'community' | 'deep-work' | 'quick-review' | 'assignment-flow';

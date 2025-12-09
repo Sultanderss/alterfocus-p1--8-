@@ -7,6 +7,9 @@ import MildToast from './MildToast';
 import PostSessionModal from './PostSessionModal';
 import InterventionContextual from './InterventionContextual';
 import { useAppStore } from '../store/appStore';
+import { getCurrentArchetype, getInterventionsForArchetype, detectArchetype } from '../lib/archetypeEngine';
+import { sendInterventionNudge, sendBreakReminder } from '../services/pushNotifications';
+import { useArchetypeSupabase } from '../hooks/useArchetypeSupabase';
 
 interface FocusSessionProps {
   config: FocusConfig;
@@ -93,7 +96,11 @@ const FocusSession: React.FC<FocusSessionProps> = ({ config, onComplete, onAbort
     };
   }, [config.mode, isPaused, showIntervention]);
 
-  const triggerDistractionAttempt = () => {
+  // Supabase Archetype Integration
+  // Fallback to local user ID if auth context is missing (simpler integration)
+  const { saveDetection, saveFeedback } = useArchetypeSupabase(null);
+
+  const triggerDistractionAttempt = async () => {
     setIsPaused(true);
     const newAttemptCount = metrics.attemptCount + 1;
 
@@ -102,18 +109,46 @@ const FocusSession: React.FC<FocusSessionProps> = ({ config, onComplete, onAbort
       attemptCount: newAttemptCount
     }));
 
+    // === DETECCIÓN EN TIEMPO REAL (REQ. 2) ===
+    const signals = {
+      // Si la velocidad de click es alta -> Ansiedad/Miedo
+      anxiety_level: metrics.clickSpeed > 3 ? 8 : 4,
+      // Si el tiempo de respuesta es lento -> LowEnergy
+      energy_level: metrics.responseTime > 10 ? 3 : 6,
+      clarity: 'unclear' as const, // Asumimos confusión al distraerse
+      recent_failures: newAttemptCount > 2
+    };
+
+    // Detectar y guardar en Supabase
+    let archetypeType = 'Fear';
+    try {
+      const detection = detectArchetype(signals);
+      await saveDetection(detection);
+      archetypeType = detection.primary;
+      console.log('[FOCUS] Distraction Archetype:', archetypeType);
+    } catch (e) {
+      console.warn('[FOCUS] Detection failed, using default', e);
+    }
+
     // Log to store
     addIntervention({
       type: newAttemptCount <= 2 ? 'mild_toast' : 'full_intervention',
-      domain: 'unknown', // Could get from tab API
+      domain: 'unknown',
       pattern: newAttemptCount > 5 ? 'compulsive' : newAttemptCount < 3 ? 'early_attempt' : 'moderate',
       userChoice: 'pending',
       successful: false
     });
 
-    // First 2 attempts: Show gentle toast
+    // First 2 attempts: Show gentle toast + send push nudge
     if (newAttemptCount <= 2) {
       setShowMildToast(true);
+
+      // Send archetype-based push notification
+      const interventions = getInterventionsForArchetype(archetypeType);
+      if (interventions.length > 0) {
+        sendInterventionNudge(interventions[0].id);
+      }
+
       // Resume after 3 seconds
       setTimeout(() => {
         setIsPaused(false);

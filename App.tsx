@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import OnboardingTutorial from './components/OnboardingTutorial';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Trophy } from 'lucide-react';
+
 import { AppView, UserState, FocusConfig, POINTS, InterventionTone, SessionRecord } from './types';
 import SplashScreen from './components/SplashScreen';
 import Onboarding from './components/Onboarding';
-
-
-
-
-import { AnimatePresence, motion } from 'framer-motion';
+import WelcomeScreen from './components/WelcomeScreen';
+import LoginPage from './components/LoginPage';
+import Dashboard from './components/Dashboard';
 import Alternatives from './components/Alternatives';
 import FocusSession from './components/FocusSession';
 import Breathing from './components/Breathing';
@@ -20,46 +20,58 @@ import Analytics from './components/Analytics';
 import AIGuide from './components/AIGuide';
 import BottomNavigation from './components/BottomNavigation';
 import InterventionMultimodal from './components/interventions/InterventionMultimodal';
-import ErrorBoundary from './components/ErrorBoundary';
-import { Trophy } from 'lucide-react';
+import FlipPhoneMode from './components/tools/FlipPhoneMode';
+import PageTransition from './components/PageTransition';
+import OnboardingFlow from './components/OnboardingFlow';
+import ExerciseGate from './components/ExerciseGate';
+import ScheduleUpload from './components/ScheduleUpload';
+import PatternDashboard from './components/PatternDashboard';
+import { ArchetypeInterventionSelector } from './components/interventions/ArchetypeInterventionSelector';
 
+import { getLocalUserId, supabase } from './lib/supabase';
 import { AutonomyProgress, shouldUnlockIgnoreButton } from './services/autonomySystem';
+import { analyzeCircadianContext, getCircadianMessage } from './services/circadianContext';
 
-// --- GLOBAL AMBIENT BACKGROUND (Endel Style) ---
-const GlobalAmbientBackground = () => (
-  <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-black">
-    <motion.div
-      animate={{
-        opacity: [0.3, 0.5, 0.3],
-        scale: [1, 1.2, 1],
-        rotate: [0, 90, 0]
-      }}
-      transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-      className="absolute top-[-10%] left-[-10%] w-[80%] h-[80%] rounded-full bg-brand-primary/20 blur-[120px]"
-    />
-    <motion.div
-      animate={{
-        opacity: [0.2, 0.4, 0.2],
-        x: [0, 50, 0],
-        y: [0, -50, 0]
-      }}
-      transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-      className="absolute bottom-[-10%] right-[-10%] w-[80%] h-[80%] rounded-full bg-brand-secondary/10 blur-[120px]"
-    />
+import { SimulationProvider, useSimulation } from './context/SimulationContext';
+
+// --- GLOBAL AMBIENT BACKGROUND (Endel Style) - Respects Dark Mode ---
+const GlobalAmbientBackground = ({ darkMode }: { darkMode: boolean }) => (
+  <div className={`fixed inset-0 z-0 pointer-events-none overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-brand-dark' : 'bg-slate-50'}`}>
+    {darkMode && (
+      <>
+        <motion.div
+          animate={{
+            opacity: [0.3, 0.5, 0.3],
+            scale: [1, 1.2, 1],
+            rotate: [0, 90, 0]
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[-10%] left-[-10%] w-[80%] h-[80%] rounded-full bg-brand-primary/20 blur-[120px]"
+        />
+        <motion.div
+          animate={{
+            opacity: [0.2, 0.4, 0.2],
+            x: [0, 50, 0],
+            y: [0, -50, 0]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[-10%] right-[-10%] w-[80%] h-[80%] rounded-full bg-brand-secondary/10 blur-[120px]"
+        />
+      </>
+    )}
   </div>
 );
 
-
-import Dashboard from './components/Dashboard';
-
-export default function App() {
+function AppContent() {
   // -- State Management --
-  const [currentView, setCurrentView] = useState<AppView>(AppView.SPLASH);
-
-  // ... (rest of state)
-
+  // Start at DASHBOARD if user already completed onboarding, otherwise SPLASH
+  const [currentView, setCurrentView] = useState<AppView>(() => {
+    const onboardingDone = localStorage.getItem('onboardingCompleted');
+    return onboardingDone === 'true' ? AppView.DASHBOARD : AppView.SPLASH;
+  });
   const [tutorialCompleted, setTutorialCompleted] = useState<boolean>(false);
 
+  // Initial User State
   const [user, setUser] = useState<UserState>({
     name: 'Estudiante',
     peakTime: 'Mañana',
@@ -68,7 +80,7 @@ export default function App() {
     completedSessions: 0,
     focusMinutes: 0,
     postponeCount: 0,
-    dailyGoal: '', // Start empty for logic checks
+    dailyGoal: '',
     dailyGoalTarget: 120,
     hasOnboarded: false,
     dailyTikTokAttempts: 0,
@@ -82,6 +94,26 @@ export default function App() {
     connectedIntegrations: [],
   });
 
+  // --- SIMULATION HOOK ---
+  const { isSimulationActive, simulatedData } = useSimulation();
+
+  useEffect(() => {
+    if (isSimulationActive) {
+      setUser(simulatedData.user);
+    } else {
+      // RESTORE REAL USER STATE ON EXIT
+      const savedUser = localStorage.getItem('alterfocusUser');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch (e) {
+          console.error("Failed to parse saved user", e);
+          // Do not reload, just keep default state
+        }
+      }
+    }
+  }, [isSimulationActive, simulatedData]);
+
   // --- AUTONOMY PROGRESS STATE ---
   const [autonomyProgress, setAutonomyProgress] = useState<AutonomyProgress>({
     currentLevel: 'aprendiz',
@@ -92,434 +124,220 @@ export default function App() {
     ignoreButtonUnlocked: false,
   });
 
+  // --- AUTH STATE ---
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Initialize Welcome/Onboarding from localStorage so returning users go straight to dashboard
+  const [showWelcome, setShowWelcome] = useState(() => {
+    const onboardingDone = localStorage.getItem('onboardingCompleted');
+    return onboardingDone !== 'true';
+  });
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   const [focusConfig, setFocusConfig] = useState<FocusConfig>({
     durationMinutes: 25,
     taskName: 'Sesión de Estudio',
     mode: 'digital'
   });
   const [showReward, setShowReward] = useState<{ show: boolean, points: number }>({ show: false, points: 0 });
-
-  // New state to pass context from Dashboard to AIGuide
   const [aiContext, setAiContext] = useState<{ type: 'kickstart' | 'motivation' | 'analysis' | null, goal: string } | null>(null);
-
-  // State to track WHY intervention was triggered (Manual simulation vs Real tab switch)
   const [interventionTrigger, setInterventionTrigger] = useState<'manual' | 'auto'>('manual');
-
-  // State to track blocked site from extension
   const [blockedSiteContext, setBlockedSiteContext] = useState<string | undefined>(undefined);
-
-  // --- INTERVENTION METRICS TRACKING ---
   const [consecutiveIgnores, setConsecutiveIgnores] = useState<number>(0);
   const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
   const [sessionDurationMinutes, setSessionDurationMinutes] = useState<number>(0);
 
-  // Refs for managing notifications and timeouts
   const notificationsEnabledRef = useRef(user.notificationsEnabled);
   const scheduledNotificationsRef = useRef<number[]>([]);
 
-  // Keep ref in sync with state
   useEffect(() => {
     notificationsEnabledRef.current = user.notificationsEnabled;
   }, [user.notificationsEnabled]);
 
-  // Update session duration every minute
+  // --- DARK MODE - Single point of control for entire app ---
+  useEffect(() => {
+    if (user.darkMode) {
+      document.documentElement.classList.add('dark');
+      document.body.style.backgroundColor = '#0a0a0f';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.style.backgroundColor = '#f8fafc';
+    }
+  }, [user.darkMode]);
+
+  // --- AUTH CHECK ---
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // EMERGENCY FIX: Force local mode ONLY if Supabase is not configured
+        if (!supabase) {
+          console.log("Dev Mode: Skipping Supabase Auth check");
+          const hasLocalUser = localStorage.getItem('alterfocusUser');
+          setIsAuthenticated(!!hasLocalUser || true); // Auto-login in dev
+          return;
+        }
+
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        setIsAuthenticated(!!data.session);
+      } catch (e) {
+        console.error("Auth Check Failed:", e);
+        // Fallback: Assume not authenticated explicitly, or allow bypass in dev
+        setIsAuthenticated(false);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    checkAuth();
+
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setIsAuthenticated(!!session);
+      });
+      return () => subscription.unsubscribe();
+    }
+  }, []);
+
+  // Session Timer
   useEffect(() => {
     if (currentSessionStart) {
       const interval = setInterval(() => {
         const now = new Date();
         const diffMs = now.getTime() - currentSessionStart.getTime();
-        const diffMinutes = Math.floor(diffMs / 60000);
-        setSessionDurationMinutes(diffMinutes);
-      }, 60000); // Update every minute
-
+        setSessionDurationMinutes(Math.floor(diffMs / 60000));
+      }, 60000);
       return () => clearInterval(interval);
     }
   }, [currentSessionStart]);
 
-  // Load consecutive ignores from storage
-  useEffect(() => {
-    const stored = localStorage.getItem('consecutiveIgnores');
-    if (stored) setConsecutiveIgnores(parseInt(stored, 10));
-  }, []);
+  // Initialization - Run once protected by ref
+  const hasInitialized = useRef(false);
 
-  // -- Initialization & Daily Reset --
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     const todayStr = new Date().toDateString();
     const lastDate = localStorage.getItem('lastActiveDate');
 
-    // Check if user has completed onboarding (Introduction screens)
+    // Load Persisted Data
     const storedOnboarding = localStorage.getItem('onboardingCompleted');
     const storedTutorial = localStorage.getItem('tutorialCompleted');
-
     const storedPoints = localStorage.getItem('alterFocusPoints');
-    const storedGoal = localStorage.getItem('dailyGoal');
-    const storedTarget = localStorage.getItem('dailyGoalTarget');
-    const storedTone = localStorage.getItem('interventionTone') as InterventionTone;
-    const storedNotifs = localStorage.getItem('notificationsEnabled') === 'true';
-    const storedSound = localStorage.getItem('soundEnabled') !== 'false';
-    const storedDark = localStorage.getItem('darkMode') !== 'false';
+    const storedUser = localStorage.getItem('alterfocusUser');
 
-    const storedAISetup = localStorage.getItem('hasCompletedAISetup') === 'true';
-    const storedDistractions = JSON.parse(localStorage.getItem('distractionApps') || '[]');
-    const storedHours = JSON.parse(localStorage.getItem('procrastinationHours') || '[]');
-    const storedIntegrations = JSON.parse(localStorage.getItem('connectedIntegrations') || '[]');
-    const storedName = localStorage.getItem('userName') || 'Estudiante';
-    const storedHelpStyle = localStorage.getItem('helpStyle') || 'Visual';
-    const storedPeakTime = localStorage.getItem('peakTime') || 'Mañana';
+    if (storedTutorial === 'true') setTutorialCompleted(true);
 
-    // Load tutorial completed status
-    if (storedTutorial === 'true') {
-      setTutorialCompleted(true);
-    }
-
-    // Check if coming from intervention (skip splash)
-    const urlParams = new URLSearchParams(window.location.search);
-    const fromIntervention = urlParams.get('from') === 'intervention';
-    const blockedSite = urlParams.get('source');
-    const skipSplash = localStorage.getItem('skip_splash') === 'true';
-
-    if (fromIntervention) {
-      // Coming from extension - show intervention immediately
-      console.log('🚨 Redirected from extension, blocked site:', blockedSite);
-
-      // RESETEAR contador de intentos - es el PRIMER intento
-      setConsecutiveIgnores(0);
-      localStorage.setItem('consecutiveIgnores', '0');
-
-      // Store blocked site for intervention context
-      if (blockedSite) {
-        setBlockedSiteContext(blockedSite);
-      }
-
-      // Set intervention as active
-      localStorage.setItem('intervention_active', 'true');
-
-      // Skip directly to intervention view
-      setCurrentView(AppView.INTERVENTION_CONTEXTUAL);
-
-      // Ensure user is onboarded
-      setUser(prev => ({ ...prev, hasOnboarded: true }));
-      return;
-    }
-
-    if (skipSplash) {
-      // Clear flags
-      localStorage.removeItem('skip_splash');
-      localStorage.removeItem('intervention_active');
-
-      // Skip directly to dashboard (or tool if specified)
-      const tool = urlParams.get('tool');
-      if (tool === 'breathing') {
-        setCurrentView(AppView.BREATHING);
-      } else if (tool === 'focus_10' || tool === 'focus_15') {
-        const duration = tool === 'focus_10' ? 10 : 15;
-        setFocusConfig({
-          durationMinutes: duration,
-          taskName: user.dailyGoal || 'Trabajar en objetivo',
-          mode: 'digital'
-        });
-        setCurrentView(AppView.FOCUS_SESSION);
-      } else {
-        setCurrentView(AppView.DASHBOARD);
-      }
-
-      // Ensure user is onboarded
-      setUser(prev => ({ ...prev, hasOnboarded: true }));
-      return;
-    }
-
-    // Normal flow: Load from storage
-    const savedUser = localStorage.getItem('alterfocusUser');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        setUser(parsed);
-      } catch (e) {
-        console.error('Error parsing saved user:', e);
-      }
-    }
-
-    // Load autonomy progress from localStorage
-    const storedProgress = localStorage.getItem('autonomyProgress');
-    if (storedProgress) {
-      try {
-        const parsedProgress = JSON.parse(storedProgress);
-        setAutonomyProgress(parsedProgress);
-      } catch (e) {
-        console.error('Error loading autonomy progress:', e);
-      }
-    }
-
-    let initialFocusMinutes = 0;
-    let initialSessions = 0;
-    let initialAttempts = 0;
-    let initialPostpone = 0;
-
-    // Daily Reset Logic
+    // Daily Reset
     if (lastDate !== todayStr) {
       localStorage.setItem('lastActiveDate', todayStr);
       localStorage.setItem('alterFocusMinutes', '0');
       localStorage.setItem('completedSessions', '0');
       localStorage.setItem('dailyTikTokAttempts', '0');
-      localStorage.setItem('postponeCount', '0');
-    } else {
-      initialFocusMinutes = parseInt(localStorage.getItem('alterFocusMinutes') || '0', 10);
-      initialSessions = parseInt(localStorage.getItem('completedSessions') || '0', 10);
-      initialAttempts = parseInt(localStorage.getItem('dailyTikTokAttempts') || '0', 10);
-      initialPostpone = parseInt(localStorage.getItem('postponeCount') || '0', 10);
     }
 
-    setUser(prev => ({
-      ...prev,
-      name: storedName,
-      peakTime: storedPeakTime,
-      helpStyle: storedHelpStyle,
-      points: storedPoints ? parseInt(storedPoints, 10) : 0,
-      dailyGoal: storedGoal || prev.dailyGoal,
-      dailyGoalTarget: storedTarget ? parseInt(storedTarget, 10) : 120,
-      focusMinutes: initialFocusMinutes,
-      completedSessions: initialSessions,
-      dailyTikTokAttempts: initialAttempts,
-      postponeCount: initialPostpone,
-      interventionTone: storedTone || 'empathic',
-      notificationsEnabled: storedNotifs,
-      soundEnabled: storedSound,
-      darkMode: storedDark,
-      hasCompletedAISetup: storedAISetup,
-      distractionApps: storedDistractions,
-      procrastinationHours: storedHours,
-      connectedIntegrations: storedIntegrations,
-      hasOnboarded: storedOnboarding === 'true'
-    }));
+    // Restore User if exists and NOT in simulation
+    if (storedUser && !isSimulationActive) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setUser(prev => ({ ...prev, ...parsed }));
+      } catch { }
+    }
 
-    // -- INTRO FLOW LOGIC --
-    // Always show Splash first.
-    // Wait 2.5s, then route based on onboarding status.
-    console.log('🕐 Setting up splash timer...');
-    const timer = setTimeout(() => {
-      console.log('⏰ Timer fired! Checking URL params...');
-      // Check for Extension Redirection
-      const urlParams = new URLSearchParams(window.location.search);
-      const isBlocked = urlParams.get('blocked') === 'true';
-      const blockedSite = urlParams.get('source');
-      console.log('🔍 URL params:', { isBlocked, blockedSite });
+    // Special Start Logic (Intervention Redirection)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isBlocked = urlParams.get('blocked') === 'true';
+    const isFromIntervention = urlParams.get('from') === 'intervention';
+    // Check both 'source' and 'site' param for compatibility
+    const blockedSite = urlParams.get('source') || urlParams.get('site');
+    const attemptCount = parseInt(urlParams.get('attempt') || '1', 10);
 
-      if (isBlocked && blockedSite) {
-        // Extension redirected us here!
-        console.log("✅ Redirection from Extension detected:", blockedSite);
-        setBlockedSiteContext(blockedSite);
-        setInterventionTrigger('auto');
-        setCurrentView(AppView.INTERVENTION_CONTEXTUAL);
-        // Clean URL without reload
+    console.log("App Init - Params:", { isBlocked, isFromIntervention, blockedSite, attemptCount });
+
+    // Trigger intervention if EITHER blocked=true OR from=intervention
+    if ((isBlocked || isFromIntervention) && blockedSite) {
+      // IMMEDIATE INTERVENTION - Set attempt count from URL
+      console.log("TRIGGERING INTERVENTION VIEW");
+      setConsecutiveIgnores(Math.max(0, attemptCount - 1));
+      setBlockedSiteContext(blockedSite);
+      setInterventionTrigger('auto');
+      setShowWelcome(false); // Ensure welcome screen hides
+      setCurrentView(AppView.INTERVENTION_CONTEXTUAL);
+
+      // Clean URL WITHOUT triggering a reload, but wait a tick to ensure state is set
+      setTimeout(() => {
         window.history.replaceState({}, document.title, window.location.pathname);
-      } else {
-        console.log('📊 Normal flow - going to Dashboard...');
-        // TEMPORARY FIX: Skip onboarding, go directly to Dashboard
-        // This bypasses the broken Onboarding component
-        if (storedOnboarding !== 'true') {
-          localStorage.setItem('onboardingCompleted', 'true');
-          localStorage.setItem('lastActiveDate', new Date().toDateString());
+      }, 500);
+    } else {
+      // Normal Splash Screen Delay
+      const timer = setTimeout(() => {
+        const storedOnboardingLocal = localStorage.getItem('onboardingCompleted');
+        if (storedOnboardingLocal === 'true') {
+          setCurrentView(AppView.DASHBOARD);
+          setShowWelcome(false);
+        } else {
+          console.log("Onboarding verification: New user detected. Showing Welcome.");
+          setShowWelcome(true);
         }
-        if (storedTutorial !== 'true') {
-          localStorage.setItem('tutorialCompleted', 'true');
-        }
-        setUser(prev => ({ ...prev, hasOnboarded: true }));
-        setTutorialCompleted(true);
-        console.log('🚀 Setting view to DASHBOARD');
-        setCurrentView(AppView.DASHBOARD);
-      }
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // -- Update autonomy progress when sessions complete --
-  useEffect(() => {
-    if (user.completedSessions > 0) {
-      setAutonomyProgress(prev => ({
-        ...prev,
-        successfulInterventions: user.completedSessions,
-        daysStreak: Math.max(prev.daysStreak, 1),
-      }));
+      }, 100);
+      return () => clearTimeout(timer); // Only relevant if component unmounts quickly
     }
-  }, [user.completedSessions]);
+  }, []); // Logic runs once on mount
 
-  // -- Dark Mode Effect --
+  // Dark Mode Effect
   useEffect(() => {
     if (user.darkMode) {
       document.documentElement.classList.add('dark');
+      document.body.style.backgroundColor = '#0F172A';
     } else {
       document.documentElement.classList.remove('dark');
+      document.body.style.backgroundColor = '#F8FAFC';
     }
   }, [user.darkMode]);
 
-  // -- Notification Logic --
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) {
-      alert("Este navegador no soporta notificaciones");
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      setUser(prev => ({ ...prev, notificationsEnabled: true }));
-      localStorage.setItem('notificationsEnabled', 'true');
-    } else {
-      setUser(prev => ({ ...prev, notificationsEnabled: false }));
-      localStorage.setItem('notificationsEnabled', 'false');
-    }
-  };
-
-  const sendNotification = (title: string, body: string) => {
-    if (notificationsEnabledRef.current && Notification.permission === 'granted') {
-      new Notification(title, { body });
-    }
-  };
-
-  const scheduleNotification = (title: string, body: string, delayMs: number) => {
-    if (Notification.permission === 'granted') {
-      const id = window.setTimeout(() => {
-        if (notificationsEnabledRef.current) {
-          sendNotification(title, body);
-        }
-      }, delayMs);
-      scheduledNotificationsRef.current.push(id);
-    }
-  };
-
-  // -- Handlers --
-
-  const handleOAuthFlow = (provider: string, callback: () => void) => {
-    const width = 500;
-    const height = 600;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-    const popup = window.open('', 'Connect ' + provider, `width=${width},height=${height},top=${top},left=${left}`);
-
-    if (popup) {
-      popup.document.write(`
-            <html>
-                <body style="background:#000; color:#fff; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%;">
-                    <h2>Connecting to ${provider}...</h2>
-                    <p>Authenticating...</p>
-                </body>
-            </html>
-        `);
-      setTimeout(() => { popup.close(); callback(); }, 1500);
-    } else {
-      callback();
-    }
-  };
-
-  const handleConnectIntegration = (id: string) => {
-    const isConnected = user.connectedIntegrations.includes(id);
-    if (isConnected) {
-      const updated = user.connectedIntegrations.filter(i => i !== id);
-      handleUpdateUser({ connectedIntegrations: updated });
-    } else {
-      handleOAuthFlow(id, () => {
-        const updated = [...user.connectedIntegrations, id];
-        handleUpdateUser({ connectedIntegrations: updated });
-        setTimeout(() => sendNotification("Conectado", `${id} listo para usar.`), 500);
-      });
-    }
-  };
-
-  // -- Update autonomy progress when sessions complete --
-  useEffect(() => {
-    if (user.completedSessions > 0) {
-      setAutonomyProgress(prev => ({
-        ...prev,
-        successfulInterventions: user.completedSessions,
-        daysStreak: Math.max(prev.daysStreak, 1),
-      }));
-    }
-  }, [user.completedSessions]);
-
-  // -- Autonomy Bar will be rendered directly in JSX --
-
-  // -- Handle Autonomy Progress Updates --
-  const handleUpdateProgress = (updates: Partial<AutonomyProgress>) => {
-    setAutonomyProgress(prev => {
+  // Helpers
+  const handleUpdateUser = (updates: Partial<UserState>) => {
+    setUser(prev => {
       const updated = { ...prev, ...updates };
-      localStorage.setItem('autonomyProgress', JSON.stringify(updated));
+
+      // Only persist to storage if NOT in simulation mode
+      if (!isSimulationActive) {
+        localStorage.setItem('alterfocusUser', JSON.stringify(updated));
+        if (updates.points !== undefined) localStorage.setItem('alterFocusPoints', updated.points.toString());
+        if (updates.darkMode !== undefined) localStorage.setItem('darkMode', updated.darkMode.toString());
+      }
+
       return updated;
     });
   };
 
-  const handleCompleteOnboarding = () => {
-    localStorage.setItem('onboardingCompleted', 'true');
-    localStorage.setItem('lastActiveDate', new Date().toDateString());
-    setUser(prev => ({ ...prev, hasOnboarded: true }));
-    setCurrentView(AppView.DASHBOARD);
-  };
-
-  const handleUpdateUser = (updates: Partial<UserState>) => {
-    setUser(prev => {
+  const handleUpdateProgress = (updates: Partial<AutonomyProgress>) => {
+    setAutonomyProgress(prev => {
       const updated = { ...prev, ...updates };
-      if (updates.points !== undefined) localStorage.setItem('alterFocusPoints', updated.points.toString());
-      if (updates.dailyGoal !== undefined) localStorage.setItem('dailyGoal', updated.dailyGoal);
-      if (updates.interventionTone !== undefined) localStorage.setItem('interventionTone', updated.interventionTone);
-      if (updates.hasCompletedAISetup !== undefined) localStorage.setItem('hasCompletedAISetup', updated.hasCompletedAISetup.toString());
-      if (updates.distractionApps !== undefined) localStorage.setItem('distractionApps', JSON.stringify(updated.distractionApps));
-      if (updates.procrastinationHours !== undefined) localStorage.setItem('procrastinationHours', JSON.stringify(updated.procrastinationHours));
-      if (updates.connectedIntegrations !== undefined) localStorage.setItem('connectedIntegrations', JSON.stringify(updated.connectedIntegrations));
-      if (updates.name !== undefined) localStorage.setItem('userName', updated.name);
-      if (updates.peakTime !== undefined) localStorage.setItem('peakTime', updated.peakTime);
-      if (updates.darkMode !== undefined) localStorage.setItem('darkMode', updated.darkMode.toString());
-
-      // Handle Theme Toggle
-      if (updates.darkMode !== undefined) {
-        if (updated.darkMode) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
+      if (!isSimulationActive) {
+        localStorage.setItem('autonomyProgress', JSON.stringify(updated));
       }
-
       return updated;
     });
   };
 
   const handleStartSession = (config: FocusConfig) => {
     setFocusConfig(config);
-    setCurrentSessionStart(new Date()); // Track session start
+    setCurrentSessionStart(new Date());
     setSessionDurationMinutes(0);
-    if (config.mode === 'offline') {
-      setCurrentView(AppView.OFFLINE_STUDY);
-    } else {
-      setCurrentView(AppView.FOCUS_SESSION);
-    }
+    setCurrentView(config.mode === 'offline' ? AppView.OFFLINE_STUDY : AppView.FOCUS_SESSION);
   };
 
   const handleSessionComplete = () => {
     const pointsEarned = focusConfig.mode === 'community' ? POINTS.SESSION_COMPLETE_COMMUNITY : focusConfig.mode === 'offline' ? POINTS.SESSION_COMPLETE_OFFLINE : POINTS.SESSION_COMPLETE_DIGITAL;
     const newPoints = user.points + pointsEarned;
-    const newCompleted = user.completedSessions + 1;
-    const newMinutes = user.focusMinutes + focusConfig.durationMinutes;
 
     handleUpdateUser({
       points: newPoints,
-      completedSessions: newCompleted,
-      focusMinutes: newMinutes
+      completedSessions: user.completedSessions + 1,
+      focusMinutes: user.focusMinutes + focusConfig.durationMinutes
     });
-
-    localStorage.setItem('completedSessions', newCompleted.toString());
-    localStorage.setItem('alterFocusMinutes', newMinutes.toString());
-
-    // Save History
-    const record: SessionRecord = {
-      date: new Date().toISOString(),
-      durationMinutes: focusConfig.durationMinutes,
-      completed: true,
-      mode: focusConfig.mode
-    };
-    const history = JSON.parse(localStorage.getItem('alterfocus_history') || '[]');
-    localStorage.setItem('alterfocus_history', JSON.stringify([record, ...history]));
-
-    // Reset session tracking
-    setCurrentSessionStart(null);
-    setSessionDurationMinutes(0);
-
-    // Reset consecutive ignores on successful session
-    setConsecutiveIgnores(0);
-    localStorage.setItem('consecutiveIgnores', '0');
 
     setShowReward({ show: true, points: pointsEarned });
     setTimeout(() => setShowReward({ show: false, points: 0 }), 3000);
@@ -528,190 +346,290 @@ export default function App() {
 
   const handleTriggerIntervention = (type: 'manual' | 'auto' = 'manual') => {
     setInterventionTrigger(type);
-    setCurrentView(AppView.INTERVENTION_CONTEXTUAL); // USA LA NUEVA VISTA
+    setCurrentView(AppView.INTERVENTION_CONTEXTUAL);
   };
 
-  // ... (rest of handlers)
+  const handleConnectIntegration = (id: string) => {
+    // Simulated OAuth Flow
+    const isConnected = user.connectedIntegrations.includes(id);
+    if (isConnected) {
+      handleUpdateUser({ connectedIntegrations: user.connectedIntegrations.filter(i => i !== id) });
+    } else {
+      handleUpdateUser({ connectedIntegrations: [...user.connectedIntegrations, id] });
+      // Show fake success notification
+      if (Notification.permission === 'granted') {
+        new Notification("AlterFocus", { body: `Conectado exitosamente con ${id}` });
+      }
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    handleUpdateUser({ notificationsEnabled: permission === 'granted' });
+  };
 
   return (
-    <div className="h-screen w-full bg-brand-dark text-slate-200 overflow-hidden relative font-sans selection:bg-brand-primary/30">
-      {/* ... (background code) */}
-      <GlobalAmbientBackground />
+    <div className="h-screen w-full bg-[#050505] flex items-center justify-center overflow-hidden font-sans selection:bg-brand-primary/30">
 
-      <div className="relative z-10 h-full max-w-md mx-auto glass-panel overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-hidden relative">
-          <AnimatePresence mode="wait">
-            {/* ... (other views) */}
+      {/* PHONE FRAME CONTAINER */}
+      <div className={`
+        relative w-full h-full 
+        sm:max-w-[390px] sm:h-[95vh] sm:max-h-[850px]
+        sm:rounded-[3rem] sm:border-[6px] sm:border-[#1a1a1a] sm:shadow-2xl 
+        overflow-hidden flex flex-col
+        ${user.darkMode ? 'bg-brand-dark text-slate-200' : 'bg-slate-50 text-slate-900'}
+      `}>
 
-            {currentView === AppView.SPLASH && (
-              <SplashScreen key="splash" />
-            )}
+        <GlobalAmbientBackground darkMode={user.darkMode} />
 
-            {currentView === AppView.ONBOARDING && (
-              <Onboarding key="onboarding" onComplete={handleCompleteOnboarding} />
-            )}
-
-            {currentView === AppView.DASHBOARD && (
-              <Dashboard
-                user={user}
-                onNavigate={setCurrentView}
-                onUpdateGoal={(g, t) => handleUpdateUser({ dailyGoal: g, dailyGoalTarget: t })}
-              />
-            )}
-
-            {currentView === AppView.AI_GUIDE && (
-              <AIGuide
-                key="aiguide"
-                user={user}
-                initialContext={aiContext}
-                onBack={() => { setAiContext(null); setCurrentView(AppView.DASHBOARD); }}
-                onStartSession={handleStartSession}
-                onNavigate={setCurrentView}
-                onUpdateUser={handleUpdateUser}
-              />
-            )}
-
-            {/* ELIMINADO: Intervention (Vieja) */}
-
-            {/* INTERVENCIÓN MULTIMODAL COMPLETA */}
-            {currentView === AppView.INTERVENTION_CONTEXTUAL && (
-              <InterventionMultimodal
-                metrics={{
-                  stressLevel: 0.5,
-                  fatigueLevel: 0.5,
-                  focusQuality: 0.5,
-                  attemptCount: consecutiveIgnores + 1,
-                  sessionDurationMinutes: sessionDurationMinutes,
-                  lastInterventions: []
-                }}
-                userGoal={user.dailyGoal || "Mantener el enfoque"}
-                onComplete={(success) => {
-                  if (success) {
-                    handleUpdateUser({ points: user.points + 10 });
-                    setShowReward({ show: true, points: 10 });
-                    setTimeout(() => setShowReward({ show: false, points: 0 }), 3000);
-                    setCurrentView(AppView.DASHBOARD);
-                  }
-                }}
-                onSkip={() => {
-                  // Increment consecutive ignores metric
-                  const newIgnores = consecutiveIgnores + 1;
-                  setConsecutiveIgnores(newIgnores);
-                  localStorage.setItem('consecutiveIgnores', newIgnores.toString());
-                  // Update user state for attempts count
-                  handleUpdateUser({ dailyTikTokAttempts: user.dailyTikTokAttempts + 1 });
-                  setCurrentView(AppView.DASHBOARD);
-                }}
-              />
-            )}
-
-            {currentView === AppView.ALTERNATIVES && (
-              <Alternatives
-                key="alternatives"
-                onBack={() => setCurrentView(AppView.DASHBOARD)}
-                onNavigate={setCurrentView}
-                attempts={user.dailyTikTokAttempts}
-                onUpdateAttempts={(val) => {
-                  handleUpdateUser({ dailyTikTokAttempts: val });
-                  localStorage.setItem('dailyTikTokAttempts', val.toString());
-                }}
-                onReward={(pts) => {
-                  handleUpdateUser({ points: user.points + pts });
-                  setShowReward({ show: true, points: pts });
-                  setTimeout(() => setShowReward({ show: false, points: 0 }), 3000);
-                }}
-                onScheduleNotification={scheduleNotification}
-              />
-            )}
-
-            {currentView === AppView.FOCUS_SESSION && (
-              <FocusSession
-                key="focus"
-                config={focusConfig}
-                onComplete={handleSessionComplete}
-                onAbort={() => setCurrentView(AppView.DASHBOARD)}
-                onTriggerIntervention={handleTriggerIntervention}
-              />
-            )}
-
-            {currentView === AppView.OFFLINE_STUDY && (
-              <OfflineStudy
-                key="offline"
-                config={focusConfig}
-                onBack={() => setCurrentView(AppView.DASHBOARD)}
-                onComplete={handleSessionComplete}
-              />
-            )}
-
-            {currentView === AppView.BREATHING && (
-              <Breathing key="breathing" onComplete={() => setCurrentView(AppView.DASHBOARD)} />
-            )}
-
-            {currentView === AppView.COMMUNITY && (
-              <Community
-                key="community"
-                onBack={() => setCurrentView(AppView.DASHBOARD)}
-                onJoinSession={(room) => handleStartSession({ durationMinutes: 25, taskName: 'Sesión en Grupo', mode: 'community', communityRoomName: room })}
-              />
-            )}
-
-            {currentView === AppView.STUDY_PANEL && (
-              <StudyPanel
-                key="studypanel"
-                selectedDuration={focusConfig.durationMinutes}
-                onBack={() => setCurrentView(AppView.DASHBOARD)}
-                onStartOffline={() => handleStartSession({ durationMinutes: 25, taskName: 'Offline', mode: 'offline' })}
-                onResourceSelect={() => { }}
-                onNavigate={setCurrentView}
-              />
-            )}
-
-            {currentView === AppView.CRISIS && (
-              <CrisisSupport key="crisis" onBack={() => setCurrentView(AppView.DASHBOARD)} />
-            )}
-
-            {currentView === AppView.SETTINGS && (
-              <Settings
-                key="settings"
-                user={user}
-                onUpdateUser={handleUpdateUser}
-                onRequestNotifications={requestNotificationPermission}
-                onConnectIntegration={handleConnectIntegration}
-                onBack={() => setCurrentView(AppView.DASHBOARD)}
-                onLogout={() => {
-                  localStorage.clear();
-                  window.location.reload();
-                }}
-              />
-            )}
-
-            {currentView === AppView.ANALYTICS && (
-              <Analytics key="analytics" onBack={() => setCurrentView(AppView.DASHBOARD)} />
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Global Reward Overlay */}
+        {/* Reward Overlay - Changed to absolute to stay within phone frame */}
         <AnimatePresence>
           {showReward.show && (
             <motion.div
-              initial={{ y: -100, opacity: 0 }}
-              animate={{ y: 20, opacity: 1 }}
-              exit={{ y: -100, opacity: 0 }}
-              className="absolute top-0 left-0 right-0 flex justify-center z-50 pointer-events-none"
+              initial={{ opacity: 0, scale: 0.5, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.5, y: -50 }}
+              className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[100] bg-gradient-to-r from-yellow-400 to-amber-600 text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-3 border border-white/20 w-max"
             >
-              <div className="bg-amber-400 text-amber-900 px-6 py-3 rounded-full font-bold shadow-lg flex items-center gap-2">
-                <Trophy size={20} /> +{showReward.points} Puntos
+              <Trophy size={32} className="text-yellow-200 animate-bounce" />
+              <div>
+                <p className="text-2xl font-black">+{showReward.points}</p>
+                <p className="text-xs font-medium text-yellow-100 uppercase tracking-wider">Puntos Ganados</p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Persistent Bottom Navigation - Hide during AI Guide and Intervention */}
-        {currentView !== AppView.AI_GUIDE && currentView !== AppView.INTERVENTION_CONTEXTUAL && (
-          <BottomNavigation currentView={currentView} onNavigate={setCurrentView} />
+        {/* Main View Router */}
+        {authLoading ? (
+          <SplashScreen />
+        ) : !isAuthenticated ? (
+          <LoginPage onAuthSuccess={() => setIsAuthenticated(true)} />
+        ) : showWelcome ? (
+          <WelcomeScreen onContinue={() => { setShowWelcome(false); setShowOnboarding(true); }} />
+        ) : showOnboarding ? (
+          <OnboardingFlow onComplete={(data) => {
+            localStorage.setItem('onboardingCompleted', 'true');
+            handleUpdateUser({
+              hasOnboarded: true,
+              distractionApps: data.top_distractions,
+              dailyGoal: data.weekly_goal
+            });
+            setShowOnboarding(false);
+            setCurrentView(AppView.DASHBOARD);
+          }} />
+        ) : (
+          <div className="relative z-10 w-full h-full flex flex-col overflow-hidden">
+
+            {/* Page Content */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide relative">
+              <AnimatePresence mode="wait">
+                {currentView === AppView.SPLASH && <SplashScreen key="splash" />}
+
+                {currentView === AppView.DASHBOARD && (
+                  <PageTransition key="dashboard" variant="fade">
+                    <Dashboard
+                      key={isSimulationActive ? 'sim-dashboard' : 'real-dashboard'}
+                      user={user}
+                      onNavigate={setCurrentView}
+                      onUpdateGoal={(g, t) => handleUpdateUser({ dailyGoal: g, dailyGoalTarget: t })}
+                      onTriggerIntervention={handleTriggerIntervention}
+                    />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.SETTINGS && (
+                  <PageTransition key="settings" variant="slide">
+                    <Settings
+                      user={user}
+                      onUpdateUser={handleUpdateUser}
+                      onRequestNotifications={requestNotificationPermission}
+                      onConnectIntegration={handleConnectIntegration}
+                      onNavigate={setCurrentView}
+                      onBack={() => setCurrentView(AppView.DASHBOARD)}
+                      onLogout={async () => {
+                        await supabase.auth.signOut();
+                        setIsAuthenticated(false);
+                        localStorage.removeItem('alterfocusUser');
+                      }}
+                    />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.COMMUNITY && (
+                  <PageTransition key="community" variant="slide">
+                    <Community
+                      user={user}
+                      onBack={() => setCurrentView(AppView.DASHBOARD)}
+                      onJoinSession={(type) => handleStartSession({
+                        durationMinutes: 25,
+                        mode: 'community',
+                        taskName: type
+                      })}
+                    />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.AI_GUIDE && (
+                  <PageTransition key="aiguide" variant="fade">
+                    <AIGuide
+                      user={user}
+                      onBack={() => setCurrentView(AppView.DASHBOARD)}
+                      onStartSession={(config) => handleStartSession(config)}
+                      onNavigate={setCurrentView}
+                      onUpdateUser={handleUpdateUser}
+                    />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.INTERVENTION_CONTEXTUAL && (() => {
+                  // Calculate REAL circadian context
+                  const circadian = analyzeCircadianContext(new Date().getHours(), sessionDurationMinutes);
+                  const circadianMessage = getCircadianMessage(circadian.pattern, consecutiveIgnores + 1);
+
+                  return (
+                    <InterventionMultimodal
+                      key="intervention"
+                      user={user}
+                      metrics={{
+                        stressLevel: circadian.energyLevel === 'low' || circadian.energyLevel === 'very_low' ? 0.7 : 0.4,
+                        fatigueLevel: sessionDurationMinutes > 60 ? 0.7 : sessionDurationMinutes > 30 ? 0.5 : 0.3,
+                        focusQuality: circadian.energyLevel === 'high' ? 0.8 : circadian.energyLevel === 'medium' ? 0.6 : 0.4,
+                        attemptCount: consecutiveIgnores + 1,
+                        sessionDurationMinutes: sessionDurationMinutes,
+                        lastInterventions: []
+                      }}
+                      userGoal={user.dailyGoal || "Mantener el enfoque"}
+                      ignoreButtonUnlocked={shouldUnlockIgnoreButton(autonomyProgress)}
+                      autonomyLevel={autonomyProgress.currentLevel}
+                      circadianContext={{
+                        pattern: circadian.pattern as 'morning_flow' | 'circadian_slump' | 'late_fatigue' | 'neutral',
+                        message: circadianMessage
+                      }}
+                      onComplete={(success) => {
+                        if (success) {
+                          handleUpdateProgress({ successfulInterventions: autonomyProgress.successfulInterventions + 1 });
+                          handleSessionComplete();
+                        }
+                        setConsecutiveIgnores(0); // Reset on success
+                      }}
+                      onSkip={() => {
+                        handleUpdateProgress({ ignoredInterventions: autonomyProgress.ignoredInterventions + 1 });
+                        setConsecutiveIgnores(prev => prev + 1);
+                        setCurrentView(AppView.DASHBOARD);
+                      }}
+                    />
+                  );
+                })()}
+
+                {currentView === AppView.FOCUS_SESSION && (
+                  <FocusSession
+                    key="focus"
+                    config={focusConfig}
+                    onComplete={handleSessionComplete}
+                    onAbort={() => setCurrentView(AppView.DASHBOARD)}
+                    onTriggerIntervention={handleTriggerIntervention}
+                  />
+                )}
+
+                {currentView === AppView.OFFLINE_STUDY && (
+                  <OfflineStudy
+                    key="offline"
+                    config={focusConfig}
+                    onBack={() => setCurrentView(AppView.DASHBOARD)}
+                    onComplete={handleSessionComplete}
+                    onNavigate={setCurrentView}
+                  />
+                )}
+
+                {currentView === AppView.ANALYTICS && (
+                  <PageTransition key="analytics" variant="slide">
+                    <Analytics onBack={() => setCurrentView(AppView.DASHBOARD)} darkMode={user.darkMode} user={user} />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.FLIP_PHONE_MODE && (
+                  <PageTransition key="flipphone" variant="morph">
+                    <FlipPhoneMode
+                      onClose={() => setCurrentView(AppView.DASHBOARD)}
+                      onActivate={(duration) => { console.log(`Flip Phone Mode for ${duration}`); }}
+                      onComplete={(earnedPoints) => {
+                        handleUpdateUser({ points: user.points + earnedPoints });
+                        setShowReward({ show: true, points: earnedPoints });
+                        setTimeout(() => setShowReward({ show: false, points: 0 }), 3000);
+                      }}
+                    />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.EXERCISE_GATE && (
+                  <ExerciseGate
+                    onComplete={(earnedPoints) => {
+                      handleUpdateUser({ points: user.points + earnedPoints });
+                      setShowReward({ show: true, points: earnedPoints });
+                      setTimeout(() => setShowReward({ show: false, points: 0 }), 3000);
+                      setCurrentView(AppView.DASHBOARD);
+                    }}
+                    onCancel={() => setCurrentView(AppView.DASHBOARD)}
+                  />
+                )}
+
+                {currentView === AppView.SCHEDULE_UPLOAD && (
+                  <PageTransition key="schedule" variant="slide">
+                    <ScheduleUpload
+                      onUploadComplete={() => setCurrentView(AppView.SETTINGS)}
+                      onClose={() => setCurrentView(AppView.SETTINGS)}
+                    />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.BREATHING && (
+                  <PageTransition key="breathing" variant="fade">
+                    <Breathing onComplete={(res) => setCurrentView(AppView.DASHBOARD)} />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.CRISIS && (
+                  <PageTransition key="crisis" variant="fade">
+                    <CrisisSupport onBack={() => setCurrentView(AppView.DASHBOARD)} />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.PATTERN_DASHBOARD && (
+                  <PageTransition key="patterns" variant="slide">
+                    <PatternDashboard onBack={() => setCurrentView(AppView.DASHBOARD)} />
+                  </PageTransition>
+                )}
+
+                {currentView === AppView.ARCHETYPE_INTERVENTION && (
+                  <ArchetypeInterventionSelector
+                    onComplete={(result) => {
+                      handleUpdateUser({ points: user.points + result.points });
+                      setShowReward({ show: true, points: result.points });
+                      setTimeout(() => setShowReward({ show: false, points: 0 }), 3000);
+                      setCurrentView(AppView.DASHBOARD);
+                    }}
+                    onCancel={() => setCurrentView(AppView.DASHBOARD)}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Bottom Navigation for Core Views */}
+            <BottomNavigation currentView={currentView} onNavigate={setCurrentView} />
+          </div>
         )}
       </div>
     </div>
+  );
+}
+
+// Wrapper for Providers
+export default function App() {
+  return (
+    <SimulationProvider>
+      <AppContent />
+    </SimulationProvider>
   );
 }

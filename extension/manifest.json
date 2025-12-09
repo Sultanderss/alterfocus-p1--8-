@@ -8,8 +8,7 @@
         "activeTab",
         "scripting",
         "webNavigation",
-        "tabs",
-        "declarativeNetRequest"
+        "tabs"
     ],
     "host_permissions": [
         "*://*.youtube.com/*",
@@ -25,15 +24,6 @@
         "*://*.web.whatsapp.com/*",
         "http://localhost/*"
     ],
-    "declarative_net_request": {
-        "rule_resources": [
-            {
-                "id": "ruleset_1",
-                "enabled": true,
-                "path": "rules.json"
-            }
-        ]
-    },
     "background": {
         "service_worker": "background.js"
     },

@@ -150,3 +150,153 @@ ${context.professionalGoal ? `- Su meta a largo plazo: ${context.professionalGoa
         };
     }
 }
+
+// ═══════════════════════════════════════════════════════════
+// DASHBOARD CONTEXTUAL AI (v4.0)
+// Observes context → Suggests ONE action → No questions
+// ═══════════════════════════════════════════════════════════
+
+export interface DashboardContext {
+    userId: string;
+    currentTime: Date;
+    lightToday: number;
+    schedule: any[];
+    urgentDeadline?: any;
+    nextEvent?: any;
+}
+
+export interface AIContextualAction {
+    emoji: string;
+    title: string;
+    intro: string;
+    cta: string;
+    actionType: 'crisis' | 'pomodoro' | 'breathing' | 'flip-phone' | 'offline';
+    duration: number;
+    nextStep?: { type: string; duration: number };
+}
+
+export async function generateDashboardAction(
+    context: DashboardContext
+): Promise<AIContextualAction> {
+    try {
+        const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) throw new Error("No API Key");
+
+        const ai = new GoogleGenAI({ apiKey });
+        const hour = context.currentTime.getHours();
+
+        // Calculate hours left for urgent deadline
+        const urgentHoursLeft = context.urgentDeadline
+            ? Math.floor((new Date(context.urgentDeadline.start_time).getTime() - context.currentTime.getTime()) / (1000 * 60 * 60))
+            : null;
+
+        const prompt = `CONTEXTO ACTUAL:
+- Hora: ${hour}:${context.currentTime.getMinutes().toString().padStart(2, '0')}
+- Luz acumulada hoy: ${context.lightToday} minutos
+- Entrega urgente: ${context.urgentDeadline ? `"${context.urgentDeadline.event_title}" en ${urgentHoursLeft} horas` : 'ninguna'}
+- Próximo evento: ${context.nextEvent ? `"${context.nextEvent.event_title}"` : 'ninguno'}
+- Estado: ${context.lightToday < 30 ? 'poco enfoque hoy' : context.lightToday < 60 ? 'enfoque moderado' : 'buen día de enfoque'}
+
+INSTRUCCIONES:
+Eres AlterFocus, un sistema inteligente anti-procrastinación para estudiantes universitarios.
+
+Tu objetivo: **Observar el contexto y dar UN empujón directo para que el estudiante actúe YA.**
+
+REGLAS CRÍTICAS:
+1. NO preguntes "¿cómo te sientes?", "¿qué quieres hacer?", ni hagas terapia
+2. SÍ observa y di lo que VES: "Tienes X en Y horas", "Es tu mejor momento", "Llevas poco enfoque hoy"
+3. Introdúcete como un amigo que sabe qué necesita: natural, directo, sin presión
+4. Sugiere UNA acción específica (no opciones)
+5. Duración realista: 5-15 min si está bloqueado, 25-120 min si hay urgencia
+6. Tono: casual, de apoyo, sin juzgar, como un amigo que te conoce
+7. NUNCA uses la palabra "Pomodoro" - usa "Sesión" o "Enfoque"
+
+TIPOS DE ACCIÓN (elige 1):
+- crisis: Flip Phone largo (60-120 min) para entregas <8h
+- pomodoro: 25 min focus clásico (pero NO digas "Pomodoro", di "Sesión 25 min")
+- breathing: 3-5 min respiración + opcional pomodoro después
+- flip-phone: 15-30 min sin distracciones
+- offline: 10-20 min desconectado total
+
+EJEMPLOS DE BUENOS MENSAJES:
+
+Contexto: Entrega en 6h, sin empezar
+✅ BUENO: {"intro": "Tienes una entrega cerca. Vamos a trabajar juntos en esto.", "cta": "Trabajar 120 min"}
+❌ MALO: {"intro": "¿Cómo te sientes respecto a tu entrega?", "cta": "Iniciar sesión"}
+
+Contexto: 3pm, slump circadiano
+✅ BUENO: {"intro": "Es normal sentirse así a esta hora. Un pequeño reset te va a ayudar.", "cta": "Respirar 3 min + Sesión 15 min"}
+❌ MALO: {"intro": "¿Quieres tomar un descanso?", "cta": "Ver opciones"}
+
+Contexto: 10am, poca luz, sin presiones
+✅ BUENO: {"intro": "Es tu mejor momento del día. Aprovechémoslo.", "cta": "Sesión 25 min"}
+❌ MALO: {"intro": "¿Qué te gustaría hacer?", "cta": "Elegir actividad"}
+
+FORMATO DE RESPUESTA (solo JSON válido, sin markdown):
+{
+  "emoji": "emoji aquí",
+  "title": "título corto o vacío",
+  "intro": "mensaje natural de 10-20 palabras máximo, como amigo",
+  "cta": "texto del botón (sin 'Pomodoro')",
+  "actionType": "tipo",
+  "duration": número
+}`;
+
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash-exp',
+            contents: prompt
+        });
+
+        const responseText = result.text || '';
+        const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/\{[\s\S]*\}/);
+        const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText;
+
+        return JSON.parse(jsonStr.trim());
+
+    } catch (error) {
+        console.error('Dashboard AI generation failed:', error);
+
+        // Smart fallback based on context
+        const hour = context.currentTime.getHours();
+
+        if (context.urgentDeadline) {
+            const hoursLeft = Math.floor((new Date(context.urgentDeadline.start_time).getTime() - context.currentTime.getTime()) / (1000 * 60 * 60));
+            return {
+                emoji: '🚨',
+                title: `${context.urgentDeadline.event_title} en ${hoursLeft}h`,
+                intro: 'Tienes una entrega cerca. Vamos a trabajar juntos en esto.',
+                cta: `Trabajar ${Math.min(hoursLeft * 60, 120)} min`,
+                actionType: 'crisis',
+                duration: Math.min(hoursLeft * 60, 120)
+            };
+        } else if (hour >= 14 && hour <= 16 && context.lightToday < 30) {
+            return {
+                emoji: '😴',
+                title: 'Slump de las 3pm',
+                intro: 'Es normal sentirse así a esta hora. Un pequeño reset te ayudará.',
+                cta: 'Respirar 3 min',
+                actionType: 'breathing',
+                duration: 3,
+                nextStep: { type: 'pomodoro', duration: 15 }
+            };
+        } else if (hour >= 9 && hour <= 11 && context.lightToday < 30) {
+            return {
+                emoji: '🌅',
+                title: 'Momento productivo',
+                intro: 'Es tu mejor momento del día. Aprovechémoslo.',
+                cta: 'Pomodoro 25 min',
+                actionType: 'pomodoro',
+                duration: 25
+            };
+        } else {
+            return {
+                emoji: '⚡',
+                title: 'Momento de enfoque',
+                intro: 'Un pequeño paso ahora hace la diferencia.',
+                cta: 'Iniciar 25 min',
+                actionType: 'pomodoro',
+                duration: 25
+            };
+        }
+    }
+}

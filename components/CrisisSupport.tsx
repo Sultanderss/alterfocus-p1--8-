@@ -38,7 +38,7 @@ const CrisisSupport: React.FC<CrisisSupportProps> = ({ onBack }) => {
     setIsTyping(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
       // Detect intent for location-based queries to switch models
       const lowerText = textToSend.toLowerCase();
@@ -184,8 +184,8 @@ const CrisisSupport: React.FC<CrisisSupportProps> = ({ onBack }) => {
               </div>
             )}
             <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.isUser
-                ? 'bg-indigo-600 text-white rounded-tr-none'
-                : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'
+              ? 'bg-indigo-600 text-white rounded-tr-none'
+              : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'
               }`}>
               <div className="whitespace-pre-wrap">{msg.text}</div>
               {renderGrounding(msg.grounding)}

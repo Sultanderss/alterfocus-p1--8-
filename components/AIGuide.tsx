@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, Bot, Mic, MicOff, Calendar, Mail, Database, CheckCircle2, Cpu, Sparkles, Layout, BookOpen, Users, Wind, Maximize2, X, WifiOff, HeartHandshake, Activity, Video } from 'lucide-react';
+import { ArrowLeft, Send, Bot, Mic, MicOff, Calendar, Mail, Database, CheckCircle2, Cpu, Sparkles, Layout, BookOpen, Users, Wind, Maximize2, X, WifiOff, HeartHandshake, Activity, Video, RotateCcw } from 'lucide-react';
 import { AppView, UserState, FocusConfig } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { useVoiceAI } from '../hooks/useVoiceAI';
@@ -288,6 +288,43 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
     // --- FLOW: NEW USER SETUP ---
 
     const startSetupFlow = () => {
+        // IMPROVED FLOW: Check if we already have data from Onboarding
+        if (user.hasOnboarded && (user.distractionApps.length > 0 || user.dailyGoal)) {
+            setSetupPhase('completed');
+            onUpdateUser({ hasCompletedAISetup: true });
+
+            addBotMessage(`¡Hola ${user.name.split(' ')[0]}! Ya he analizado tu perfil inicial. 🧠`, 500);
+
+            setTimeout(() => {
+                const distractions = user.distractionApps.length > 0 ? user.distractionApps.join(', ') : 'Ninguna';
+                const goal = user.dailyGoal || 'No definida';
+
+                addBotMessage(`Ya tengo estos datos de ti:
+                • Distracciones: ${distractions}
+                • Meta actual: "${goal}"
+                
+                ¿Quieres que usemos esto para empezar?`, 1000, [
+                    { label: "✅ Sí, empezar", action: () => runAppTour(), primary: true },
+                    {
+                        label: "🔄 No, cambiar datos", action: () => {
+                            setSetupPhase('distractions');
+                            addBotMessage("Entendido. Reconfiguremos tu perfil desde cero. ¿Qué aplicaciones te distraen más?", 500);
+                            setTimeout(() => {
+                                setMessages(prev => [...prev, {
+                                    id: Date.now().toString(),
+                                    sender: 'bot',
+                                    text: "Selección Múltiple:",
+                                    contentType: 'setup_distractions'
+                                }]);
+                            }, 1000);
+                        }
+                    }
+                ]);
+            }, 1000);
+            return;
+        }
+
+        // DEFAULT FLOW: Fresh Start
         setSetupPhase('distractions');
         addBotMessage(`Bienvenido a AlterFocus. Soy tu asistente personal. 🧠`, 500);
         setTimeout(() => {
@@ -304,11 +341,17 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
     };
 
     const handleDistractionsConfirm = () => {
+        // Fix: Prevent double execution or execution during wrong phase
+        if (setupPhase !== 'distractions') return;
+
+        console.log("Confirming distractions...", tempDistractions);
         onUpdateUser({ distractionApps: tempDistractions });
         addUserMessage(`Seleccionadas: ${tempDistractions.join(', ') || 'Ninguna'}`);
-        setSetupPhase('hours');
 
-        addBotMessage("Entendido.", 500);
+        // Fix: Use timeout to allow UI updates to settle before unmounting the component
+        setTimeout(() => setSetupPhase('hours'), 100);
+
+        addBotMessage("Entendido.", 600);
         setTimeout(() => {
             addBotMessage("¿En qué momento del día sientes que tu fuerza de voluntad es más baja?", 500);
             setTimeout(() => {
@@ -319,7 +362,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
                     contentType: 'setup_hours'
                 }]);
             }, 1000);
-        }, 1500);
+        }, 1600);
     };
 
     const handleHoursConfirm = () => {
@@ -373,7 +416,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
                 User Input: "${userText}".
                 Task: Write a warm, short (max 20 words) welcome.
             `;
-                const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+                const result = await ai.models.generateContent({ model: 'gemini-1.5-flash', contents: prompt });
                 responseText = result.text || "¡Perfil configurado!";
             } catch (e) {
                 // FALLBACK TO MOCK
@@ -494,7 +537,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
                 User Input: "${userResponse}".
                 Task: Give 1 short tactical tip (max 30 words) to overcome the obstacle or execute the plan.
             `;
-                const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+                const result = await ai.models.generateContent({ model: 'gemini-1.5-flash', contents: prompt });
                 responseText = result.text || "¡Vamos a ello!";
             } catch (e) {
                 responseText = await mockGenerateContent(userResponse);
@@ -608,7 +651,7 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
                 User Input: "${userPrompt}"
                 Instructions: Provide helpful, short guidance. Suggest using App Tools (Digital, Offline, Community) where appropriate.
             `;
-                const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: finalPrompt });
+                const result = await ai.models.generateContent({ model: 'gemini-1.5-flash', contents: finalPrompt });
                 responseText = result.text || "Entendido.";
             } catch (e) {
                 responseText = await mockGenerateContent(userPrompt);
@@ -639,122 +682,231 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
     };
 
     return (
-        <motion.div className="absolute inset-0 bg-brand-dark z-20 flex flex-col" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}>
+        <motion.div className="absolute inset-0 bg-gradient-to-b from-black via-slate-900 to-black z-20 flex flex-col overflow-hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            {/* Animated Background Orbs */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <motion.div
+                    animate={{
+                        scale: [1, 1.3, 1],
+                        opacity: [0.15, 0.25, 0.15],
+                        rotate: [0, 180, 360]
+                    }}
+                    transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                    className="absolute top-[-20%] left-[-20%] w-[70%] h-[70%] bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full blur-[120px]"
+                />
+                <motion.div
+                    animate={{
+                        scale: [1.2, 1, 1.2],
+                        opacity: [0.1, 0.2, 0.1],
+                        rotate: [360, 180, 0]
+                    }}
+                    transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+                    className="absolute bottom-[-20%] right-[-20%] w-[70%] h-[70%] bg-gradient-to-br from-purple-500 to-pink-600 rounded-full blur-[120px]"
+                />
+            </div>
+
             {/* Header */}
-            <div className="bg-brand-dark/90 backdrop-blur-md px-4 py-3 flex items-center justify-between shadow-sm sticky top-0 z-10 border-b border-white/10">
+            <div className="relative z-10 bg-black/40 backdrop-blur-xl px-4 py-3 flex items-center justify-between shadow-lg border-b border-white/10">
                 <div className="flex items-center gap-3">
-                    <button onClick={onBack} className="p-2 -ml-2 text-slate-400 hover:bg-white/10 rounded-full transition-colors"><ArrowLeft size={24} /></button>
+                    <button onClick={onBack} className="p-2 -ml-2 text-slate-400 hover:bg-white/10 rounded-full transition-colors">
+                        <ArrowLeft size={24} />
+                    </button>
                     <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 bg-brand-primary/20 rounded-full flex items-center justify-center text-brand-primary border border-brand-primary/30">
-                            <Bot size={20} />
-                        </div>
+                        {/* Animated Avatar */}
+                        <motion.div
+                            animate={{
+                                boxShadow: [
+                                    '0 0 20px rgba(99, 102, 241, 0.3)',
+                                    '0 0 40px rgba(99, 102, 241, 0.6)',
+                                    '0 0 20px rgba(99, 102, 241, 0.3)'
+                                ]
+                            }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="relative w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center"
+                        >
+                            <Bot size={20} className="text-white" />
+                            {isTyping && (
+                                <motion.div
+                                    className="absolute inset-0 rounded-full border-2 border-cyan-400"
+                                    animate={{ scale: [1, 1.4], opacity: [0.8, 0] }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                />
+                            )}
+                        </motion.div>
                         <div>
                             <h1 className="font-bold text-sm text-white">AlterFocus AI</h1>
                             <div className="flex items-center gap-1">
-                                <span className={`w-1.5 h-1.5 rounded-full ${isVoiceMode ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                                <span className="text-[10px] font-medium text-slate-400">{isVoiceMode ? 'Voz Activa' : 'En línea'}</span>
+                                <motion.span
+                                    animate={{ opacity: [0.5, 1, 0.5] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                    className={`w-1.5 h-1.5 rounded-full ${isVoiceMode ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                                />
+                                <span className="text-[10px] font-medium text-slate-400">
+                                    {isVoiceMode ? 'Voz Activa' : 'En línea'}
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <button onClick={() => {
-                    const newMode = !isVoiceMode;
-                    setIsVoiceMode(newMode);
-                    if (newMode) {
-                        voiceAI.startListening();
-                    } else {
-                        voiceAI.stopListening();
-                        voiceAI.stopSpeaking();
-                    }
-                }} className={`p-2.5 rounded-full transition-colors ${isVoiceMode ? 'bg-rose-500/20 text-rose-400' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}>
-                    {isVoiceMode ? <MicOff size={18} /> : <Mic size={18} />}
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => {
+                            setMessages([]);
+                            setIsTyping(false);
+                            setTimeout(() => {
+                                if (user.hasCompletedAISetup) {
+                                    startReturningUserFlow(false);
+                                } else {
+                                    startSetupFlow();
+                                }
+                            }, 100);
+                        }}
+                        className="p-2.5 rounded-full bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition-all"
+                        title="Reiniciar chat"
+                    >
+                        <RotateCcw size={18} />
+                    </button>
+                    <button
+                        onClick={() => {
+                            const newMode = !isVoiceMode;
+                            setIsVoiceMode(newMode);
+                            if (newMode) {
+                                voiceAI.startListening();
+                            } else {
+                                voiceAI.stopListening();
+                                voiceAI.stopSpeaking();
+                            }
+                        }}
+                        className={`p-2.5 rounded-full transition-all ${isVoiceMode
+                            ? 'bg-rose-500/20 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
+                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                            }`}
+                    >
+                        {isVoiceMode ? <MicOff size={18} /> : <Mic size={18} />}
+                    </button>
+                </div>
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-brand-dark relative pb-20">
+            <div className="relative flex-1 overflow-y-auto p-4 space-y-5 pb-24">
+                {/* Voice Mode Indicator - Sticky at top of chat */}
                 {isVoiceMode && (
-                    <div className="absolute inset-0 bg-brand-dark/95 z-10 flex flex-col items-center justify-center p-8">
-                        <motion.div
-                            animate={{
-                                scale: voiceAI.isListening ? [1, 1.2, 1] : 1,
-                                opacity: voiceAI.isListening ? [0.5, 1, 0.5] : 0.8
-                            }}
-                            transition={{ duration: 1.5, repeat: voiceAI.isListening ? Infinity : 0 }}
-                            className={`w-32 h-32 rounded-full flex items-center justify-center mb-6 ${voiceAI.isListening ? 'bg-brand-primary/20' :
-                                    voiceAI.isSpeaking ? 'bg-green-500/20' : 'bg-slate-700/50'
-                                }`}
-                        >
-                            {voiceAI.isListening ? (
-                                <Mic size={48} className="text-brand-primary" />
-                            ) : voiceAI.isSpeaking ? (
-                                <Activity size={48} className="text-green-400 animate-pulse" />
-                            ) : (
-                                <Mic size={48} className="text-slate-500" />
-                            )}
-                        </motion.div>
-
-                        <h2 className="text-xl font-bold text-white mb-2">
-                            {voiceAI.isListening ? 'Escuchando...' :
-                                voiceAI.isSpeaking ? 'Hablando...' :
-                                    'Modo Voz'}
-                        </h2>
-
-                        {voiceAI.transcript && (
-                            <p className="text-sm text-slate-300 mb-4 text-center max-w-md">
-                                "{voiceAI.transcript}"
-                            </p>
-                        )}
-
-                        {voiceAI.error && (
-                            <p className="text-xs text-rose-400 mb-4">{voiceAI.error}</p>
-                        )}
-
-                        <p className="text-sm text-slate-400 mb-6 text-center">
-                            {voiceAI.isListening
-                                ? 'Habla naturalmente, te estoy escuchando...'
-                                : 'Presiona el botón del micrófono para empezar'}
-                        </p>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => voiceAI.toggleListening()}
-                                className={`px-6 py-3 rounded-full text-sm font-bold transition-all ${voiceAI.isListening
-                                        ? 'bg-rose-500 text-white hover:bg-rose-600'
-                                        : 'bg-brand-primary text-white hover:bg-brand-primary/80'
-                                    }`}
-                            >
-                                {voiceAI.isListening ? 'Parar' : 'Empezar'}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setIsVoiceMode(false);
-                                    voiceAI.stopListening();
-                                    voiceAI.stopSpeaking();
-                                }}
-                                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-full text-sm font-bold text-white transition-colors"
-                            >
-                                Salir
-                            </button>
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="sticky top-0 z-20 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 backdrop-blur-xl rounded-2xl p-3 border border-cyan-500/20 mb-4"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <motion.div
+                                    animate={{
+                                        scale: voiceAI.isListening ? [1, 1.15, 1] : 1,
+                                    }}
+                                    transition={{ duration: 0.8, repeat: voiceAI.isListening ? Infinity : 0 }}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center ${voiceAI.isListening
+                                        ? 'bg-cyan-500 shadow-lg shadow-cyan-500/40'
+                                        : 'bg-slate-700'
+                                        }`}
+                                >
+                                    <Mic size={14} className="text-white" />
+                                </motion.div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-cyan-300 truncate">
+                                        {voiceAI.isListening ? '🎙️ Escuchando...' : 'Modo Voz'}
+                                    </p>
+                                    {voiceAI.transcript && (
+                                        <p className="text-[10px] text-slate-400 truncate">"{voiceAI.transcript}"</p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => voiceAI.toggleListening()}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${voiceAI.isListening
+                                        ? 'bg-rose-500 text-white'
+                                        : 'bg-cyan-500 text-white'
+                                        }`}
+                                >
+                                    {voiceAI.isListening ? '⏸ Pausar' : '▶ Iniciar'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsVoiceMode(false);
+                                        voiceAI.stopListening();
+                                        voiceAI.stopSpeaking();
+                                    }}
+                                    className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                    <X size={12} className="text-slate-400" />
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
 
+                {/* Messages */}
                 {messages.map((msg) => (
-                    <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`max-w-[90%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.sender === 'user' ? 'bg-brand-primary text-white rounded-tr-none' : 'bg-white/5 text-slate-200 rounded-tl-none border border-white/10'}`}>
-                            {msg.sender === 'bot' && <div className="flex items-center gap-1 mb-1 opacity-50 text-[10px] font-bold uppercase tracking-wider"><Sparkles size={8} /> Asistente</div>}
-                            {msg.text}
+                    <motion.div
+                        key={msg.id}
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+                    >
+                        <div
+                            className={`max-w-[85%] p-4 rounded-3xl text-sm leading-relaxed shadow-lg backdrop-blur-sm relative ${msg.sender === 'user'
+                                ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-tr-md'
+                                : 'bg-white/10 text-slate-100 rounded-tl-md border border-white/20'
+                                }`}
+                        >
+                            {msg.sender === 'bot' && (
+                                <div className="flex items-center gap-1.5 mb-2 opacity-70">
+                                    <motion.div
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                    >
+                                        <Sparkles size={12} className="text-cyan-400" />
+                                    </motion.div>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+                                        Asistente
+                                    </span>
+                                </div>
+                            )}
+
+                            <div className={msg.sender === 'user' ? 'font-medium' : ''}>
+                                {msg.text}
+                            </div>
 
                             {/* SETUP COMPONENTS */}
                             {msg.contentType === 'setup_distractions' && setupPhase === 'distractions' && (
-                                <div className="mt-4"><MultiSelectApps options={["TikTok", "Instagram", "WhatsApp", "Twitter", "YouTube"]} selected={tempDistractions} onChange={setTempDistractions} onConfirm={handleDistractionsConfirm} /></div>
+                                <div className="mt-4">
+                                    <MultiSelectApps
+                                        options={["TikTok", "Instagram", "WhatsApp", "Twitter", "YouTube"]}
+                                        selected={tempDistractions}
+                                        onChange={setTempDistractions}
+                                        onConfirm={handleDistractionsConfirm}
+                                    />
+                                </div>
                             )}
                             {msg.contentType === 'setup_hours' && setupPhase === 'hours' && (
-                                <div className="mt-4"><MultiSelectApps options={["Mañana (8-12)", "Tarde (13-18)", "Noche (19-23)"]} selected={tempHours} onChange={setTempHours} onConfirm={handleHoursConfirm} /></div>
+                                <div className="mt-4">
+                                    <MultiSelectApps
+                                        options={["Mañana (8-12)", "Tarde (13-18)", "Noche (19-23)"]}
+                                        selected={tempHours}
+                                        onChange={setTempHours}
+                                        onConfirm={handleHoursConfirm}
+                                    />
+                                </div>
                             )}
                             {msg.contentType === 'setup_integrations' && setupPhase === 'integrations' && (
-                                <div className="mt-4"><MultiSelectIntegrations selected={tempIntegrations} onChange={setTempIntegrations} onConfirm={handleIntegrationsConfirm} /></div>
+                                <div className="mt-4">
+                                    <MultiSelectIntegrations
+                                        selected={tempIntegrations}
+                                        onChange={setTempIntegrations}
+                                        onConfirm={handleIntegrationsConfirm}
+                                    />
+                                </div>
                             )}
 
                             {/* TOUR DEMOS */}
@@ -767,37 +919,101 @@ const AIGuide: React.FC<AIGuideProps> = ({ user, initialContext, onBack, onStart
                         {msg.options && (
                             <div className="mt-3 flex flex-wrap gap-2">
                                 {msg.options.map((opt, idx) => (
-                                    <button key={idx} onClick={opt.action} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm ${opt.primary ? 'bg-brand-secondary text-white' : 'bg-white/5 text-brand-secondary border border-brand-secondary/30 hover:bg-white/10'}`}>
+                                    <motion.button
+                                        key={idx}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={opt.action}
+                                        className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all shadow-lg backdrop-blur-sm ${opt.primary
+                                            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_20px_rgba(6,182,212,0.3)]'
+                                            : 'bg-white/10 text-cyan-400 border border-cyan-400/30 hover:bg-white/20'
+                                            }`}
+                                    >
                                         {opt.label}
-                                    </button>
+                                    </motion.button>
                                 ))}
                             </div>
                         )}
                     </motion.div>
                 ))}
 
+                {/* Typing Indicator with Breathing Bubble */}
                 {isTyping && (
-                    <div className="flex items-center gap-2 ml-2">
-                        <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-slate-500"><Cpu size={16} /></div>
-                        <div className="text-xs text-slate-400 animate-pulse">Escribiendo...</div>
-                    </div>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex items-start gap-3"
+                    >
+                        {/* Breathing Mini Bubble */}
+                        <motion.div
+                            animate={{
+                                scale: [1, 1.1, 1],
+                                opacity: [0.6, 1, 0.6]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                            className="relative w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/30 backdrop-blur-xl border border-white/20 flex items-center justify-center"
+                        >
+                            <motion.div
+                                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-full blur-xl"
+                            />
+                            <Cpu size={18} className="text-cyan-400 relative z-10" />
+                        </motion.div>
+
+                        <div className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl rounded-tl-md p-4">
+                            <div className="flex items-center gap-2">
+                                <motion.div
+                                    animate={{ opacity: [0.3, 1, 0.3] }}
+                                    transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                                    className="w-2 h-2 rounded-full bg-cyan-400"
+                                />
+                                <motion.div
+                                    animate={{ opacity: [0.3, 1, 0.3] }}
+                                    transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                                    className="w-2 h-2 rounded-full bg-cyan-400"
+                                />
+                                <motion.div
+                                    animate={{ opacity: [0.3, 1, 0.3] }}
+                                    transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                                    className="w-2 h-2 rounded-full bg-cyan-400"
+                                />
+                                <span className="text-xs text-slate-400 ml-2">Procesando...</span>
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
                 <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
             {!isVoiceMode && (
-                <div className="p-3 bg-brand-dark border-t border-white/10 flex gap-2">
+                <div className="relative z-10 p-3 bg-black/40 backdrop-blur-xl border-t border-white/10 flex gap-2">
                     <input
-                        value={inputText} onChange={(e) => setInputText(e.target.value)}
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                        placeholder={isRefiningGoal ? "Describe tu plan u obstáculo..." : setupPhase === 'open_expression' ? "Cuéntame..." : setupPhase === 'goal_setting' ? "Tu meta..." : "Mensaje..."}
+                        placeholder={
+                            isRefiningGoal
+                                ? "Describe tu plan u obstáculo..."
+                                : setupPhase === 'open_expression'
+                                    ? "Cuéntame..."
+                                    : setupPhase === 'goal_setting'
+                                        ? "Tu meta..."
+                                        : "Mensaje..."
+                        }
                         disabled={['distractions', 'hours', 'integrations', 'tour'].includes(setupPhase)}
-                        className="flex-1 bg-white/5 rounded-full px-4 outline-none text-sm text-white placeholder:text-slate-500 disabled:opacity-50 border border-white/5 focus:border-brand-primary/50 transition-colors"
+                        className="flex-1 bg-white/10 backdrop-blur-sm rounded-full px-5 py-3 outline-none text-sm text-white placeholder:text-slate-500 disabled:opacity-50 border border-white/20 focus:border-cyan-500/50 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all"
                     />
-                    <button onClick={() => handleSendMessage()} disabled={!inputText.trim()} className="p-3 rounded-full bg-brand-primary text-white disabled:opacity-50 hover:bg-brand-primary/80 transition-colors">
-                        <Send size={16} />
-                    </button>
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleSendMessage()}
+                        disabled={!inputText.trim()}
+                        className="p-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white disabled:opacity-50 disabled:from-slate-700 disabled:to-slate-700 shadow-lg transition-all"
+                    >
+                        <Send size={18} />
+                    </motion.button>
                 </div>
             )}
         </motion.div>

@@ -1,77 +1,98 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Pause, Play, CheckCircle, Sparkles, Smartphone, BookOpen, PenTool, Plus, Trash2, WifiOff, Box, Layers, AlertTriangle } from 'lucide-react';
+import {
+  ArrowLeft, CheckCircle, Sparkles, WifiOff, Package, Coffee,
+  Plus, Check, ChevronRight, Smartphone, Timer, Zap, BookOpen
+} from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
-import { FocusConfig } from '../types';
+import { FocusConfig, AppView } from '../types';
 
 interface OfflineStudyProps {
   onBack: () => void;
   onComplete: () => void;
   config: FocusConfig;
+  onNavigate?: (view: AppView) => void;
 }
 
 interface OfflinePlan {
   source: 'ai' | 'local';
-  distractionApp: string;
-  materials: { id: string; name: string; checked: boolean }[];
-  steps: string[];
+  materials: { id: string; name: string; checked: boolean; icon?: string }[];
+  environment: string[];
 }
 
-const OfflineStudy: React.FC<OfflineStudyProps> = ({ onBack, onComplete, config }) => {
-  const [phase, setPhase] = useState<'loading' | 'checklist' | 'running' | 'finished'>('loading');
-  const [timeLeft, setTimeLeft] = useState(config.durationMinutes * 60);
-  const [isActive, setIsActive] = useState(false);
+/**
+ * OFFLINE STUDY - Modo Sin Pantalla (SIMPLIFICADO)
+ * 
+ * Propósito: SOLO preparación para estudiar sin dispositivos.
+ * - Lista de materiales físicos
+ * - Tips de ambiente
+ * - Al completar → elige ir a Focus Session o Flip Phone
+ * 
+ * SIN timer propio (eso está en Focus Session y Flip Phone)
+ */
+const OfflineStudy: React.FC<OfflineStudyProps> = ({ onBack, onComplete, config, onNavigate }) => {
+  const [phase, setPhase] = useState<'loading' | 'checklist' | 'ready'>('loading');
   const [plan, setPlan] = useState<OfflinePlan | null>(null);
   const [newMaterial, setNewMaterial] = useState("");
 
-  // --- MÓDULO DE LÓGICA LOCAL (OFFLINE FALLBACK) ---
+  // --- MÓDULO DE LÓGICA LOCAL ---
   const generateLocalPlan = (taskName: string): OfflinePlan => {
     const lowerTask = taskName.toLowerCase();
-    let materials = ["Agua", "Cuaderno de notas"];
-    let steps = ["Despeja tu mesa", "Abre el material en la página actual"];
+    let materials: OfflinePlan['materials'] = [];
+    let environment: string[] = [];
 
     if (lowerTask.match(/mat|cálc|fís|num|álg/)) {
-      materials = ["Calculadora", "Hojas para ejercicios", "Lápiz y Borrador", "Libro de texto"];
-      steps = ["Revisa las fórmulas básicas", "Selecciona 3 problemas clave", "Resuelve sin mirar la solución"];
+      materials = [
+        { id: '1', name: 'Calculadora científica', checked: false, icon: '🧮' },
+        { id: '2', name: 'Hojas cuadriculadas', checked: false, icon: '📄' },
+        { id: '3', name: 'Lápiz y borrador', checked: false, icon: '✏️' },
+        { id: '4', name: 'Libro de texto', checked: false, icon: '📚' }
+      ];
+      environment = ["Escritorio despejado", "Buena iluminación", "Agua a la mano"];
     } else if (lowerTask.match(/lee|lit|hist|fil|biol/)) {
-      materials = ["Resaltadores", "Fichas de lectura", "Libro/Kindle"];
-      steps = ["Lee los títulos y subtítulos primero", "Haz una lectura rápida de 5 min", "Resalta solo ideas clave"];
+      materials = [
+        { id: '1', name: 'Resaltadores', checked: false, icon: '🖍️' },
+        { id: '2', name: 'Fichas de notas', checked: false, icon: '🗂️' },
+        { id: '3', name: 'Libro/Material impreso', checked: false, icon: '📖' }
+      ];
+      environment = ["Lugar silencioso", "Posición cómoda", "Sin distracciones visuales"];
     } else if (lowerTask.match(/prog|cod|dev/)) {
-      materials = ["Papel para diagramar", "Laptops (Solo IDE abierto)"];
-      steps = ["Dibuja la lógica en papel", "Define entradas y salidas", "Escribe pseudocódigo"];
+      materials = [
+        { id: '1', name: 'Papel para diagramas', checked: false, icon: '📝' },
+        { id: '2', name: 'Marcadores de colores', checked: false, icon: '🖊️' }
+      ];
+      environment = ["Pizarra o espacio grande", "Música instrumental (opcional)"];
+    } else {
+      materials = [
+        { id: '1', name: 'Cuaderno de notas', checked: false, icon: '📓' },
+        { id: '2', name: 'Bolígrafo', checked: false, icon: '🖊️' },
+        { id: '3', name: 'Material de estudio', checked: false, icon: '📚' }
+      ];
+      environment = ["Espacio ordenado", "Agua o té", "Silencio o música suave"];
     }
 
-    return {
-      source: 'local',
-      distractionApp: "Redes Sociales",
-      materials: materials.map((m, i) => ({ id: i.toString(), name: m, checked: false })),
-      steps: ["Cierra todas las apps de fondo", ...steps]
-    };
+    return { source: 'local', materials, environment };
   };
 
   // --- GENERACIÓN DEL PLAN ---
   useEffect(() => {
     const generatePlan = async () => {
-      // 1. Intentar Módulo Local si no hay conexión
       if (!navigator.onLine) {
-        console.log("Modo Offline detectado: Usando módulo local");
         setPlan(generateLocalPlan(config.taskName));
         setPhase('checklist');
         return;
       }
 
-      // 2. Intentar Gemini (Online)
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        
+
         const prompt = `
-          User wants to study "${config.taskName}" offline.
-          Generate a JSON plan.
-          1. "materials": List 3-5 physical items needed.
-          2. "steps": 3 concrete steps for deep work.
-          3. "distractionApp": Name one app to close (e.g. Instagram, TikTok).
-          JSON Schema: { "distractionApp": string, "materials": string[], "steps": string[] }
-        `;
+                    User wants to study "${config.taskName}" offline (without screens).
+                    Generate a JSON plan with:
+                    1. "materials": List of 3-5 physical items needed (each with "name" and "icon" emoji)
+                    2. "environment": 2-3 tips to optimize the study space
+                    JSON Schema: { "materials": [{"name": string, "icon": string}], "environment": string[] }
+                `;
 
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -82,12 +103,15 @@ const OfflineStudy: React.FC<OfflineStudyProps> = ({ onBack, onComplete, config 
         const json = JSON.parse(response.text);
         setPlan({
           source: 'ai',
-          distractionApp: json.distractionApp || "Celular",
-          materials: json.materials.map((m: string, i: number) => ({ id: i.toString(), name: m, checked: false })),
-          steps: json.steps || ["Prepárate", "Enfócate"]
+          materials: json.materials.map((m: any, i: number) => ({
+            id: i.toString(),
+            name: m.name || m,
+            checked: false,
+            icon: m.icon || '📦'
+          })),
+          environment: json.environment || ["Espacio limpio"]
         });
         setPhase('checklist');
-
       } catch (error) {
         console.error("Error IA, usando fallback local", error);
         setPlan(generateLocalPlan(config.taskName));
@@ -98,26 +122,9 @@ const OfflineStudy: React.FC<OfflineStudyProps> = ({ onBack, onComplete, config 
     generatePlan();
   }, [config.taskName]);
 
-  // --- LOGICA DEL CRONÓMETRO ---
-  useEffect(() => {
-    let interval: any;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && phase === 'running') {
-      setIsActive(false);
-      setPhase('finished');
-      if (Notification.permission === 'granted') {
-        new Notification("Sesión Finalizada", { body: "¡Buen trabajo offline!" });
-      }
-    }
-    return () => clearInterval(interval);
-  }, [isActive, timeLeft, phase]);
-
   const toggleMaterial = (id: string) => {
     if (!plan) return;
-    const updatedMaterials = plan.materials.map(m => 
+    const updatedMaterials = plan.materials.map(m =>
       m.id === id ? { ...m, checked: !m.checked } : m
     );
     setPlan({ ...plan, materials: updatedMaterials });
@@ -125,223 +132,220 @@ const OfflineStudy: React.FC<OfflineStudyProps> = ({ onBack, onComplete, config 
 
   const addMaterial = () => {
     if (!newMaterial.trim() || !plan) return;
-    const newItem = { id: Date.now().toString(), name: newMaterial, checked: true };
+    const newItem = { id: Date.now().toString(), name: newMaterial, checked: true, icon: '➕' };
     setPlan({ ...plan, materials: [...plan.materials, newItem] });
     setNewMaterial("");
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Progress for check circle
   const checklistProgress = plan ? (plan.materials.filter(m => m.checked).length / plan.materials.length) * 100 : 0;
+  const allChecked = checklistProgress === 100;
 
   return (
-    <motion.div 
-      className="absolute inset-0 bg-slate-50 z-50 flex flex-col overflow-hidden"
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
+    <motion.div
+      className="absolute inset-0 z-50 flex flex-col overflow-hidden"
+      style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #0f0f1a 100%)' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
     >
-      {/* Header - Fixed */}
-      <div className="bg-white px-4 py-4 flex items-center gap-4 border-b border-slate-200 shadow-sm shrink-0 z-20">
-        <button onClick={onBack} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
-          <ArrowLeft size={24} />
-        </button>
-        <div>
-            <h1 className="font-bold text-lg text-slate-800 leading-none">Modo Sin Pantalla</h1>
-            <p className="text-xs text-brand-teal font-bold mt-1 uppercase tracking-wide truncate max-w-[200px]">{config.taskName}</p>
+      {/* Ambient background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          animate={{ opacity: [0.1, 0.15, 0.1] }}
+          transition={{ duration: 8, repeat: Infinity }}
+          className="absolute top-[-20%] left-[-20%] w-[70%] h-[70%] bg-teal-500/20 rounded-full blur-[120px]"
+        />
+      </div>
+
+      {/* Header */}
+      <div className="relative z-10 px-4 py-4 flex items-center gap-4 border-b border-white/5">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={onBack}
+          className="p-2 bg-white/5 rounded-xl text-slate-300 hover:bg-white/10 transition-colors"
+        >
+          <ArrowLeft size={20} />
+        </motion.button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <WifiOff size={16} className="text-teal-400" />
+            <h1 className="font-bold text-lg text-white">Preparación Offline</h1>
+          </div>
+          <p className="text-xs text-slate-400">Prepara todo antes de desconectar</p>
         </div>
+        {plan?.source === 'ai' && (
+          <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full flex items-center gap-1 font-bold">
+            <Sparkles size={10} /> IA
+          </span>
+        )}
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6 pb-32 relative bg-slate-50">
-        
-        {/* FASE 1: CARGANDO */}
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-32">
+
+        {/* LOADING */}
         {phase === 'loading' && (
-            <div className="flex flex-col items-center justify-center py-32 text-slate-400 animate-pulse">
-                <Sparkles size={64} className="mb-6 text-brand-teal" />
-                <p className="text-lg font-medium text-slate-600">Configurando entorno...</p>
-                <p className="text-sm mt-2 text-slate-400">Consultando materiales óptimos</p>
-            </div>
+          <div className="flex flex-col items-center justify-center py-32">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-16 h-16 border-4 border-teal-500/30 border-t-teal-500 rounded-full mb-6"
+            />
+            <p className="text-white font-medium">Preparando tu lista...</p>
+          </div>
         )}
 
-        {/* FASE 2: CHECKLIST DE MATERIALES */}
-        {phase === 'checklist' && plan && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-brand-100 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-5">
-                        <Layers size={100} className="text-brand-teal"/>
-                    </div>
-                    <h2 className="font-bold text-slate-800 text-xl mb-2 relative z-10">Preparación</h2>
-                    <p className="text-sm text-slate-500 relative z-10 leading-relaxed">
-                        Reúne estos materiales antes de guardar el dispositivo.
-                    </p>
+        {/* CHECKLIST */}
+        {(phase === 'checklist' || phase === 'ready') && plan && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="py-6 space-y-6"
+          >
+            {/* Intro */}
+            <div className="bg-gradient-to-r from-teal-500/10 to-cyan-500/10 border border-teal-500/20 rounded-2xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-teal-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Package size={20} className="text-teal-400" />
                 </div>
-
                 <div>
-                    <div className="flex justify-between items-center mb-4 px-1">
-                        <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Lista de Vuelo</span>
-                        {plan.source === 'ai' && (
-                             <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-1 rounded-full flex items-center gap-1 font-bold">
-                                <Sparkles size={10}/> IA
-                             </span>
-                        )}
-                    </div>
-
-                    <div className="grid gap-3">
-                        {plan.materials.map((mat) => (
-                            <motion.button 
-                                key={mat.id} 
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => toggleMaterial(mat.id)}
-                                className={`flex items-center gap-4 p-5 rounded-2xl border-2 text-left transition-all shadow-sm ${
-                                    mat.checked 
-                                    ? 'bg-emerald-50 border-emerald-500/20 shadow-none' 
-                                    : 'bg-white border-slate-100 hover:border-brand-teal/50'
-                                }`}
-                            >
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors shrink-0 ${
-                                    mat.checked ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white'
-                                }`}>
-                                    {mat.checked && <CheckCircle size={18} strokeWidth={3} />}
-                                </div>
-                                <span className={`text-base font-medium ${mat.checked ? 'text-emerald-800 line-through opacity-60' : 'text-slate-700'}`}>
-                                    {mat.name}
-                                </span>
-                            </motion.button>
-                        ))}
-                    </div>
-
-                    {/* Add Custom Material */}
-                    <div className="flex gap-2 mt-4">
-                        <input 
-                            value={newMaterial}
-                            onChange={(e) => setNewMaterial(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && addMaterial()}
-                            placeholder="+ Agregar otro item..."
-                            className="flex-1 bg-white border border-slate-200 rounded-xl px-5 py-4 text-sm outline-none focus:border-brand-teal shadow-sm"
-                        />
-                        <button 
-                            onClick={addMaterial}
-                            disabled={!newMaterial.trim()}
-                            className="bg-slate-800 text-white w-14 rounded-xl disabled:opacity-50 flex items-center justify-center shadow-sm hover:bg-slate-700 active:scale-95 transition-all"
-                        >
-                            <Plus size={24} />
-                        </button>
-                    </div>
+                  <h2 className="text-white font-bold text-sm mb-1">¿Qué necesitas?</h2>
+                  <p className="text-slate-400 text-xs">
+                    Reúne estos materiales físicos antes de guardar tu dispositivo.
+                  </p>
                 </div>
-            </motion.div>
-        )}
+              </div>
+            </div>
 
-        {/* FASE 3: SESIÓN ACTIVA (RUNNING) */}
-        {(phase === 'running' || phase === 'finished') && plan && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-6 h-full">
-                 {/* Context Awareness Card */}
-                 <div className="bg-rose-50 border-2 border-rose-100 p-6 rounded-3xl flex items-center gap-5">
-                    <div className="bg-rose-200/50 p-3 rounded-2xl text-rose-600 shrink-0">
-                        <Smartphone size={32} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-rose-800 text-sm uppercase tracking-wide mb-1">Acción Requerida</h3>
-                        <p className="text-base font-medium text-rose-900 leading-snug">
-                            Cierra <strong>{plan.distractionApp}</strong>. Deja el móvil lejos.
-                        </p>
-                    </div>
-                </div>
+            {/* Task name display */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-3 flex items-center gap-3">
+              <BookOpen size={18} className="text-slate-400" />
+              <div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Tu tarea</p>
+                <p className="text-white font-medium text-sm">{config.taskName || "Estudio general"}</p>
+              </div>
+            </div>
 
-                 {/* Timer Box */}
-                 <div className="bg-slate-900 rounded-[2.5rem] p-8 text-center shadow-2xl shadow-slate-900/20 relative overflow-hidden border border-slate-800">
-                    <div className="absolute top-0 left-0 right-0 h-1.5 bg-slate-800">
-                        <div 
-                            className="h-full bg-brand-teal transition-all duration-1000"
-                            style={{ width: `${(timeLeft / (config.durationMinutes * 60)) * 100}%` }} 
-                        />
-                    </div>
-                    {isActive && (
-                         <div className="absolute top-6 right-6 flex gap-1.5 items-center bg-slate-800/50 px-3 py-1 rounded-full">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">En foco</span>
-                        </div>
-                    )}
-                    
-                    <div className="mt-8 mb-2">
-                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mb-4">Tiempo Restante</div>
-                        <div className="text-7xl font-mono font-bold text-white tracking-tighter tabular-nums">
-                            {formatTime(timeLeft)}
-                        </div>
-                    </div>
-                    
-                    <p className="text-sm font-medium text-slate-400 mt-4 opacity-80">
-                        {isActive ? "No toques la pantalla" : "⏸️ Sesión Pausada"}
-                    </p>
-                </div>
+            {/* Materials List */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
+                Materiales ({plan.materials.filter(m => m.checked).length}/{plan.materials.length})
+              </h3>
+              {plan.materials.map((mat, index) => (
+                <motion.button
+                  key={mat.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => toggleMaterial(mat.id)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${mat.checked
+                    ? 'bg-teal-500/10 border-teal-500/30'
+                    : 'bg-white/5 border-white/10 hover:border-teal-500/30'
+                    }`}
+                >
+                  <span className="text-xl">{mat.icon || '📦'}</span>
+                  <span className={`flex-1 text-left text-sm font-medium ${mat.checked ? 'text-teal-400 line-through opacity-70' : 'text-white'
+                    }`}>
+                    {mat.name}
+                  </span>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${mat.checked
+                    ? 'bg-teal-500 border-teal-500 text-white'
+                    : 'border-slate-600'
+                    }`}>
+                    {mat.checked && <Check size={12} strokeWidth={3} />}
+                  </div>
+                </motion.button>
+              ))}
 
-                {/* Steps List */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
-                    <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-6 flex items-center gap-2">
-                        <Layers size={14}/> Instrucciones de Vuelo
-                    </h3>
-                    <div className="space-y-6">
-                        {plan.steps.map((step, i) => (
-                            <div key={i} className="flex items-start gap-4">
-                                <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-teal border border-brand-100 flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
-                                    {i + 1}
-                                </div>
-                                <p className="text-base text-slate-700 font-medium leading-snug mt-1">
-                                    {step}
-                                </p>
-                            </div>
-                        ))}
+              {/* Add Custom */}
+              <div className="flex gap-2 mt-3">
+                <input
+                  value={newMaterial}
+                  onChange={(e) => setNewMaterial(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addMaterial()}
+                  placeholder="Agregar otro..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500/50 placeholder:text-slate-600"
+                />
+                <button
+                  onClick={addMaterial}
+                  disabled={!newMaterial.trim()}
+                  className="bg-teal-500 text-white w-10 rounded-xl disabled:opacity-50 flex items-center justify-center"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Environment Tips */}
+            {plan.environment && plan.environment.length > 0 && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Coffee size={14} /> Prepara tu espacio
+                </h3>
+                <div className="space-y-2">
+                  {plan.environment.map((tip, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <span className="text-teal-400">•</span>
+                      <span className="text-slate-300">{tip}</span>
                     </div>
+                  ))}
                 </div>
-            </motion.div>
+              </div>
+            )}
+          </motion.div>
         )}
       </div>
 
-      {/* Fixed Footer Actions - ALWAYS VISIBLE */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white p-5 border-t border-slate-100 z-30 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-        {phase === 'checklist' && (
-             <button 
-                onClick={() => { setPhase('running'); setIsActive(true); }}
-                disabled={checklistProgress < 50} // Require at least some checked
-                className="w-full bg-brand-teal text-white py-4 rounded-2xl font-bold text-lg shadow-xl shadow-brand-teal/20 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 disabled:shadow-none"
-            >
-                {checklistProgress < 100 ? "Confirmar Materiales" : "¡Todo Listo! Iniciar 🚀"}
-            </button>
-        )}
+      {/* Fixed Footer */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f] to-transparent pt-8 pb-6 px-4 z-30">
+        {!allChecked ? (
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <p className="text-slate-400 text-sm mb-1">Marca todos los materiales que tienes listos</p>
+            <div className="w-full bg-white/10 rounded-full h-2 mt-2">
+              <div
+                className="bg-gradient-to-r from-teal-500 to-cyan-500 h-2 rounded-full transition-all"
+                style={{ width: `${checklistProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-center text-teal-400 text-sm font-medium mb-2">
+              ✓ ¡Todo listo! ¿Cómo quieres estudiar?
+            </p>
 
-        {(phase === 'running' || phase === 'finished') && (
-            phase === 'finished' ? (
-                 <button 
-                    onClick={onComplete}
-                    className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 transition-colors animate-pulse text-lg"
-                >
-                    <CheckCircle size={24} /> Guardar Progreso
-                </button>
-            ) : (
-                <div className="flex gap-4">
-                    <button 
-                        onClick={() => setIsActive(!isActive)}
-                        className={`flex-1 py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-98 transition-all ${
-                            isActive 
-                            ? 'bg-slate-100 text-slate-700 border border-slate-200' 
-                            : 'bg-brand-teal text-white shadow-lg shadow-brand-teal/20'
-                        }`}
-                    >
-                        {isActive ? <><Pause size={24} fill="currentColor" /> Pausar</> : <><Play size={24} fill="currentColor" /> Reanudar</>}
-                    </button>
-                    <button 
-                        onClick={onComplete} 
-                        className="px-6 rounded-2xl border-2 border-slate-100 text-slate-400 font-bold hover:bg-slate-50 hover:text-slate-600 hover:border-slate-200 transition-colors text-sm"
-                    >
-                        Finalizar
-                    </button>
-                </div>
-            )
+            {/* Option 1: Focus Session */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onNavigate?.(AppView.FOCUS_SESSION)}
+              className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
+            >
+              <Timer size={20} />
+              Iniciar Sesión de Enfoque
+            </motion.button>
+
+            {/* Option 2: Flip Phone Mode */}
+            <button
+              onClick={() => onNavigate?.(AppView.FLIP_PHONE_MODE)}
+              className="w-full bg-white/5 border border-white/10 text-slate-300 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"
+            >
+              <Smartphone size={16} />
+              Usar Modo Flip Phone
+              <ChevronRight size={16} />
+            </button>
+
+            {/* Option 3: Just close */}
+            <button
+              onClick={onComplete}
+              className="w-full text-slate-500 py-2 text-sm hover:text-slate-300 transition-colors"
+            >
+              Solo guardar y salir
+            </button>
+          </div>
         )}
       </div>
     </motion.div>

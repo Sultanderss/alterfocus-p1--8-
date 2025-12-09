@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AlterFocus Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -13,104 +14,245 @@
         }
 
         body {
-            width: 320px;
+            width: 360px;
             font-family: 'Inter', -apple-system, system-ui, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            background: linear-gradient(180deg, #0a0a0f 0%, #0f0f1a 100%);
             color: #f8fafc;
-            padding: 0;
+            overflow: hidden;
         }
 
+        /* Header */
         .header {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            padding: 20px;
-            text-align: center;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+            padding: 20px 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -30%;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            filter: blur(30px);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            backdrop-filter: blur(10px);
         }
 
         .header h1 {
             font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 4px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
         }
 
         .header p {
             font-size: 11px;
-            opacity: 0.9;
+            opacity: 0.85;
+            margin-top: 2px;
         }
 
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        .status-dot.active {
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .status-dot.inactive {
+            background: #ef4444;
+            animation: none;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Content */
         .content {
             padding: 16px;
         }
 
-        .stats {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 16px;
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
             margin-bottom: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 14px;
+            transition: all 0.3s ease;
         }
 
-        .stat-row:last-child {
-            margin-bottom: 0;
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
         }
 
-        .stat-label {
-            font-size: 13px;
-            color: #94a3b8;
+        .stat-icon {
+            font-size: 18px;
+            margin-bottom: 8px;
         }
 
         .stat-value {
-            font-size: 18px;
-            font-weight: 700;
-            color: #fff;
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 2px;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .stat-value.blocked {
-            color: #ef4444;
+            background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .stat-value.saved {
-            color: #22c55e;
+            background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .toggle-section {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
+        .stat-value.streak {
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-value.points {
+            background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        /* Control Section */
+        .control-section {
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            border-radius: 16px;
             padding: 16px;
             margin-bottom: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .toggle-label {
-            font-size: 13px;
-            margin-bottom: 8px;
-            color: #cbd5e1;
-        }
-
-        .toggle-container {
+        .control-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            margin-bottom: 12px;
         }
 
+        .control-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        .control-subtitle {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        /* Toggle Switch */
         .toggle {
             position: relative;
-            width: 48px;
-            height: 26px;
+            width: 52px;
+            height: 28px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 13px;
+            border-radius: 14px;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .toggle:hover {
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .toggle.active {
-            background: #4f46e5;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
         }
 
         .toggle-slider {
@@ -121,106 +263,303 @@
             height: 20px;
             background: white;
             border-radius: 50%;
-            transition: transform 0.3s;
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         .toggle.active .toggle-slider {
-            transform: translateX(22px);
+            transform: translateX(24px);
         }
 
-        .toggle-status {
-            font-size: 12px;
-            font-weight: 600;
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
         }
 
-        .toggle-status.active {
-            color: #22c55e;
-        }
-
-        .toggle-status.inactive {
-            color: #ef4444;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 12px;
+        .quick-btn {
+            flex: 1;
+            padding: 12px 8px;
             border: none;
-            border-radius: 10px;
-            font-size: 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            font-size: 11px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .quick-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .quick-btn:active {
+            transform: translateY(0);
+        }
+
+        .quick-btn .icon {
+            font-size: 16px;
+        }
+
+        /* Main Buttons */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
             color: white;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
         }
 
         .btn-primary:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+            transform: translateY(-2px);
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
         }
 
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Blocked Sites List */
+        .sites-section {
+            margin-bottom: 16px;
+        }
+
+        .sites-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .sites-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sites-count {
+            font-size: 10px;
+            color: #4f46e5;
+            background: rgba(79, 70, 229, 0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .sites-scroll {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            scrollbar-width: none;
+        }
+
+        .sites-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .site-chip {
+            flex-shrink: 0;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 10px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .site-chip .emoji {
+            font-size: 12px;
+        }
+
+        /* Footer */
         .footer {
             text-align: center;
             padding: 12px;
             font-size: 10px;
-            color: #64748b;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #475569;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .footer-version {
+            background: rgba(79, 70, 229, 0.1);
+            color: #818cf8;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        /* Animation for numbers */
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stat-value {
+            animation: countUp 0.3s ease-out;
         }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <h1>🧠 AlterFocus</h1>
-        <p>Control de Bloqueo Anti-Distracción</p>
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">🧠</div>
+                <div>
+                    <h1>AlterFocus</h1>
+                    <p>Protector de Atención</p>
+                </div>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot active" id="statusDot"></div>
+                <span id="statusText">Activo</span>
+            </div>
+        </div>
     </div>
 
     <div class="content">
-        <div class="stats">
-            <div class="stat-row">
-                <span class="stat-label">🚫 Bloqueadas Hoy</span>
-                <span class="stat-value blocked" id="blockedCount">0</span>
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🚫</div>
+                <div class="stat-value blocked" id="blockedCount">0</div>
+                <div class="stat-label">Bloqueadas Hoy</div>
             </div>
-            <div class="stat-row">
-                <span class="stat-label">⏱️ Tiempo Ahorrado</span>
-                <span class="stat-value saved" id="savedTime">0 min</span>
+            <div class="stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-value saved" id="savedTime">0m</div>
+                <div class="stat-label">Tiempo Ahorrado</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-value streak" id="streakDays">0</div>
+                <div class="stat-label">Días de Racha</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-value points" id="totalPoints">0</div>
+                <div class="stat-label">Puntos Totales</div>
             </div>
         </div>
 
-        <div class="toggle-section">
-            <div class="toggle-label">Estado del Bloqueador</div>
-            <div class="toggle-container">
-                <span class="toggle-status active" id="statusText">Activo</span>
+        <!-- Control Toggle -->
+        <div class="control-section">
+            <div class="control-header">
+                <div>
+                    <div class="control-title">Estado del Escudo</div>
+                    <div class="control-subtitle">Bloqueo automático de distracciones</div>
+                </div>
                 <div class="toggle active" id="toggleBtn">
                     <div class="toggle-slider"></div>
                 </div>
             </div>
         </div>
 
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <button class="quick-btn" id="focusBtn">
+                <span class="icon">🎯</span>
+                Focus Mode
+            </button>
+            <button class="quick-btn" id="breakBtn">
+                <span class="icon">☕</span>
+                Pausa 5m
+            </button>
+            <button class="quick-btn" id="statsBtn">
+                <span class="icon">📊</span>
+                Estadísticas
+            </button>
+        </div>
+
+        <!-- Blocked Sites -->
+        <div class="sites-section">
+            <div class="sites-header">
+                <span class="sites-title">Sitios Bloqueados</span>
+                <span class="sites-count" id="sitesCount">13 sitios</span>
+            </div>
+            <div class="sites-scroll">
+                <div class="site-chip"><span class="emoji">📺</span> YouTube</div>
+                <div class="site-chip"><span class="emoji">📘</span> Facebook</div>
+                <div class="site-chip"><span class="emoji">📷</span> Instagram</div>
+                <div class="site-chip"><span class="emoji">🎵</span> TikTok</div>
+                <div class="site-chip"><span class="emoji">🐦</span> Twitter/X</div>
+                <div class="site-chip"><span class="emoji">👽</span> Reddit</div>
+                <div class="site-chip"><span class="emoji">🎥</span> Netflix</div>
+                <div class="site-chip"><span class="emoji">🎮</span> Twitch</div>
+                <div class="site-chip"><span class="emoji">💬</span> Discord</div>
+            </div>
+        </div>
+
+        <!-- Main Buttons -->
         <button class="btn btn-primary" id="openDashboard">
-            📊 Abrir Dashboard
+            <span>📱</span> Abrir Dashboard Completo
         </button>
-        <button class="btn btn-secondary" id="resetStats">
-            🔄 Resetear Estadísticas
+        <button class="btn btn-secondary" id="settingsBtn">
+            <span>⚙️</span> Configuración
         </button>
     </div>
 
     <div class="footer">
-        AlterFocus v1.0 - Protege tu atención
+        <span>AlterFocus</span>
+        <span class="footer-version">v2.0</span>
+        <span>• Protege tu mente</span>
     </div>
 
     <script src="popup.js"></script>

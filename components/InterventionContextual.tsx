@@ -71,26 +71,28 @@ const InterventionContextual: React.FC<InterventionContextualProps> = ({
 
     if (step === 'sos') {
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-rose-950/90 backdrop-blur-lg p-6">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/95 backdrop-blur-lg p-6">
                 <motion.div
                     initial={{ scale: 0.9 }}
                     animate={{ scale: 1 }}
-                    className="bg-slate-900 border border-rose-500/30 p-8 rounded-3xl max-w-md w-full text-center shadow-[0_0_50px_rgba(225,29,72,0.3)]"
+                    className="bg-slate-800 border border-slate-600 p-8 rounded-3xl max-w-md w-full text-center shadow-xl"
                 >
-                    <AlertTriangle size={48} className="text-rose-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-white mb-2">Detectamos un patrón de crisis</h2>
-                    <p className="text-slate-300 mb-6">
-                        Has intentado distraerte {metrics.attemptCount} veces en poco tiempo. Tu autonomía parece baja ahora mismo.
+                    <div className="w-16 h-16 mx-auto mb-4 bg-purple-500/20 rounded-full flex items-center justify-center">
+                        <AlertTriangle size={32} className="text-purple-400" />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">¿Necesitas apoyo?</h2>
+                    <p className="text-slate-300 mb-6 text-sm">
+                        Notamos que has estado intentando concentrarte durante mucho tiempo. Si sientes que necesitas hablar con alguien, estos recursos están disponibles para ti.
                     </p>
                     <div className="space-y-3">
-                        <a href="tel:3196543210" className="block w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold transition-colors">
-                            📞 Llamar Línea PAS (Colombia)
+                        <a href="tel:3196543210" className="block w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-medium transition-colors">
+                            📞 Línea de Apoyo (Colombia)
                         </a>
-                        <a href="https://semm.com.co" target="_blank" rel="noreferrer" className="block w-full bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl font-medium transition-colors">
-                            💬 Chat Psicología (SEMM)
+                        <a href="https://semm.com.co" target="_blank" rel="noreferrer" className="block w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-medium transition-colors">
+                            💬 Chat con Profesional
                         </a>
-                        <button onClick={onSkip} className="text-sm text-slate-500 mt-4 hover:text-slate-300">
-                            Estoy bien, solo quiero distraerme
+                        <button onClick={onSkip} className="w-full text-slate-400 hover:text-white py-2 transition-colors text-sm">
+                            Estoy bien, continuar trabajando
                         </button>
                     </div>
                 </motion.div>

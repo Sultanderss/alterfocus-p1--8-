@@ -68,19 +68,30 @@ export const analyzeContext = (
     }
 
     // -----------------------------------------------------------------
-    // 2️⃣ Decidir nivel de intervención
+    // 2️⃣ Decidir nivel de intervención - MUCHO MENOS AGRESIVO
     // -----------------------------------------------------------------
     let level: InterventionLevel = 'gentle_toast'; // ⭐ SIEMPRE EMPEZAR SUAVE
 
-    // Casos especiales que SOBRESCRIBEN el default
+    // ESCALAMIENTO GRADUAL - NO CRISIS por intentos de distracción
     if (pattern === 'urgent_task') {
         level = 'mandatory_task';
-    } else if (attemptCount > 5 || (pattern === 'late_fatigue' && attemptCount > 3)) {
-        level = 'crisis_sos';
-    } else if (attemptCount > 2) {
-        level = 'contextual_modal'; // Herramienta completa directa
+    } else if (attemptCount >= 8 && attemptCount < 15) {
+        // Muchos intentos = modal firme pero NO crisis
+        level = 'firm_intervention';
+    } else if (attemptCount >= 4) {
+        // 4-7 intentos = modal contextual con herramientas
+        level = 'contextual_modal';
     }
-    // Si attemptCount <= 2, se queda en 'gentle_toast' (el default)
+    // 1-3 intentos = gentle_toast (default)
+
+    // ⚠️ CRISIS_SOS SOLO para casos EXTREMOS:
+    // - 20+ intentos en una sesión (comportamiento muy inusual)
+    // - O combinación de fatiga extrema + muchos intentos
+    // Esto NUNCA debería dispararse por procrastinación normal
+    if (attemptCount >= 20 || (pattern === 'late_fatigue' && attemptCount >= 15)) {
+        level = 'crisis_sos';
+    }
+    // NOTA: La pantalla de crisis también es accesible manualmente desde el botón "Crisis" del dashboard
 
     // -----------------------------------------------------------------
     // 3️⃣ Seleccionar herramienta y mensaje
